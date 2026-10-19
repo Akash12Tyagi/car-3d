@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { HeatHaze } from './fx/heat-haze.js';
+import { Exhaust } from './fx/exhaust.js';
 
 const BASE = import.meta.env.BASE_URL;
 const DEG = Math.PI / 180;
@@ -15,8 +17,37 @@ const damp = (a, b, lambda, dt) => THREE.MathUtils.lerp(a, b, 1 - Math.exp(-lamb
  */
 export const RIG_KEYS = ['az', 'el', 'dist', 'fov', 'tx', 'ty', 'tz', 'rot', 'shift', 'roll'];
 
+// The 458's three tailpipes, in car space (measured from the model's chrome tips)
+const TAILPIPES = [-0.105, 0, 0.105].map((x) => new THREE.Vector3(x, 0.4, 2.27));
+
+export function webglAvailable() {
+  try {
+    const c = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+  } catch {
+    return false;
+  }
+}
+
+/** Stand-in used when WebGL is unavailable: the page runs as a static, readable site. */
+export class NullExperience {
+  constructor() {
+    this.rig = {};
+    this.target = {};
+    this.exhaust = { throttle: 0, pulse() {} };
+    this.renderer = null;
+    this.haze = null;
+  }
+  setRig() {}
+  addHotspot() {}
+  setPaint() {}
+  setRims() {}
+  setPixelRatioCap() {}
+  setStage() {}
+}
+
 export class Experience {
-  constructor(canvas, { onProgress, onLoad } = {}) {
+  constructor(canvas, { onProgress, onLoad, reducedMotion = false } = {}) {
     this.canvas = canvas;
     this.clock = new THREE.Clock();
     this.pointer = new THREE.Vector2();
@@ -28,6 +59,7 @@ export class Experience {
     this.streaks = 0; // 0..1 speed-line intensity
     this.shake = 0;
     this.hotspots = [];
+    this.stage = null; // an alternate scene (the Anatomy cinematic) that takes over the canvas while active
 
     this.rig = { az: 0, el: 89.5, dist: 20, fov: 30, tx: 0, ty: 0, tz: 0, rot: 90, shift: 0, roll: 0 };
     this.target = { ...this.rig };
@@ -42,6 +74,10 @@ export class Experience {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // MSAA on the haze target only where the GPU budget allows it
+    this.haze = new HeatHaze(this.renderer, { samples: matchMedia('(pointer: coarse)').matches ? 0 : 4 });
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
@@ -51,6 +87,8 @@ export class Experience {
     this.buildStudioEnvironment();
     this.buildMaterials();
     this.buildStreaks();
+    this.exhaust = new Exhaust({ reducedMotion });
+    this.scene.add(this.exhaust.points);
 
     this.manager = new THREE.LoadingManager();
     this.manager.onProgress = (_url, loaded, total) => onProgress?.(loaded / total);
@@ -247,6 +285,13 @@ export class Experience {
     this.shadowMaterial = shadow.material;
     car.add(shadow);
 
+    for (const tip of TAILPIPES) {
+      const emitter = new THREE.Object3D();
+      emitter.position.copy(tip);
+      car.add(emitter);
+      this.exhaust.addEmitter(emitter, new THREE.Vector3(0, 0, 1));
+    }
+
     this.car = car;
     this.carRoot.add(car);
     this.compileAll();
@@ -301,11 +346,25 @@ export class Experience {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.haze.setSize(w, h, this.renderer.getPixelRatio());
+    this.stage?.resize(w, h);
+  }
+
+  setStage(stage) {
+    this.stage = stage;
+    stage.resize(this.width, this.height);
   }
 
   tick() {
     const dt = Math.min(this.clock.getDelta(), 1 / 20);
     const t = this.clock.elapsedTime;
+
+    // While the cinematic is on screen it owns the canvas; the main scene sleeps
+    if (this.stage?.active) {
+      this.stage.update(dt, t);
+      this.stage.render();
+      return;
+    }
 
     // Smoothly chase the scroll-driven rig target (gives the camera mass)
     for (const k of RIG_KEYS) this.rig[k] = this.snap ? this.target[k] : damp(this.rig[k], this.target[k], 4.2, dt);
@@ -374,7 +433,12 @@ export class Experience {
       this.rimMaterial.roughness = damp(this.rimMaterial.roughness, this.rimTarget.roughness, 6, dt);
     }
 
-    this.renderer.render(this.scene, this.camera);
+    // Exhaust: relative airflow follows the launch sequence's speed streaks
+    this.exhaust.wind.set(0, 0, this.streaks * (8 + this.wheelSpeedDamped * 0.9) * 0.9);
+    this.exhaust.update(dt);
+    this.exhaust.setView(this.renderer.getPixelRatio(), this.height, this.camera.fov);
+
+    this.haze.render(this.scene, this.camera, this.exhaust.hazeSources(), t);
     this.updateHotspots();
   }
 
