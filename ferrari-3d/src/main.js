@@ -8,6 +8,7 @@ import { Experience, NullExperience, RIG_KEYS, webglAvailable } from './experien
 import { EngineSound } from './engine-sound.js';
 import { Anatomy, BEATS } from './cinematic/anatomy.js';
 import { conceptCar } from './cinematic/manifest.js';
+import { viewRig, FRONT } from './scene/views.js';
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -22,23 +23,29 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 /* Camera choreography                                                 */
 /* One keyframe per chapter. The camera blends from one to the next    */
 /* while the next chapter slides into view, then holds while its copy  */
-/* is read. FRONT is the azimuth that looks at the car's nose.         */
+/* is read. Beauty shots use the named views in src/scene/views.js,    */
+/* whose distance is solved from the car's real bounds so the car      */
+/* fills the space its chapter leaves for it at any aspect ratio.      */
+/* `frame` = share of the viewport the car may occupy (NDC half-extent)*/
+/* and `shift` slides it beside the copy.                              */
 /* ------------------------------------------------------------------ */
-const FRONT = 180;
 const isPortrait = () => window.innerWidth / window.innerHeight < 0.9;
 
 function keyframes() {
   const p = isPortrait();
+  const aspect = window.innerWidth / window.innerHeight;
+  const bounds = exp.bbox; // measured from the loaded model (undefined until then → defaults)
+  const view = (name, width, height, shift = 0, extra = {}) => viewRig(name, { aspect, width, height, shift, bounds, ...extra });
   const top = { az: 0, el: 89.4, fov: 30, tx: 0, ty: 0, tz: 0, roll: 0, shift: 0 };
   return {
     hero: { ...top, dist: p ? 15.5 : 9.6, rot: p ? 0 : 90 },
-    overture: { az: FRONT + 38, el: 7, dist: p ? 14 : 10.5, fov: 24, tx: 0, ty: p ? 1.5 : 0.5, tz: 0, rot: 0, shift: p ? 0 : 0.22, roll: 0 },
-    design: { az: FRONT + 90, el: 1.5, dist: p ? 25 : 15.5, fov: p ? 24 : 17, tx: 0, ty: 0.55, tz: 0, rot: 0, shift: 0, roll: 0 },
+    overture: p ? view('hero34', 0.98, 0.36, 0, { ty: 1.3 }) : view('hero34', 0.56, 0.64, 0.2),
+    design: p ? view('profile', 0.92, 0.3, 0, { fov: 24 }) : view('profile', 0.64, 0.5),
     // Behind the Anatomy curtain: drift back into the dark, then hand over to Performance
     anatomy: { az: FRONT + 70, el: 4, dist: p ? 30 : 19, fov: p ? 24 : 20, tx: 0, ty: 0.55, tz: 0, rot: 0, shift: 0, roll: 0 },
-    performance: { az: FRONT - 145, el: 16, dist: p ? 16 : 10.5, fov: 26, tx: 0, ty: p ? 0.9 : 0.45, tz: 0, rot: 0, shift: p ? 0 : -0.15, roll: 0 },
+    performance: p ? view('rear34', 0.95, 0.32, 0, { ty: 0.9 }) : view('rear34', 0.5, 0.48, -0.17),
     launch: { az: FRONT + 62, el: 3, dist: p ? 9.5 : 7.2, fov: 34, tx: 0, ty: 0.42, tz: 0, rot: 0, shift: 0, roll: -2.5 },
-    configure: { az: FRONT - 40, el: 11, dist: p ? 18 : 11, fov: 25, tx: 0, ty: p ? -0.5 : 0.4, tz: 0, rot: 0, shift: p ? 0 : 0.1, roll: 0 },
+    configure: p ? view('atelier34', 0.98, 0.32, 0, { ty: -0.5 }) : view('atelier34', 0.52, 0.58, 0.19),
     finale: { ...top, dist: p ? 19 : 13, rot: p ? 0 : 90, tz: p ? 1.5 : 1.15, roll: 0 },
   };
 }

@@ -111,12 +111,12 @@ export const conceptCar = {
       hidden: 'third-party logo' },
   ],
 
+  // Paint is spread over many meshes, so these slots select by the asset's own material names
   slots: {
-    // Paint is spread over many meshes, so the slot is defined by the asset's paint materials
-    paint: { materials: ['Paint 1 Carmine', 'Paint 2 Carmine'] },
-    glass: { materials: ['Glass'] },
-    rims: { materials: ['Rim1', 'Rim2'] },
-    calipers: { materials: ['Brake'] },
+    paint: [{ materials: ['Paint 1 Carmine', 'Paint 2 Carmine'] }],
+    glass: [{ materials: ['Glass'] }],
+    rims: [{ materials: ['Rim1', 'Rim2'] }],
+    calipers: [{ materials: ['Brake'] }],
   },
 
   /** KHR_materials_variants presets authored into the asset. */

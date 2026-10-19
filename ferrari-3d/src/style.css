@@ -109,8 +109,9 @@ button {
 .backdrop__glow {
   position: absolute;
   inset: -20%;
-  background: radial-gradient(40% 35% at 50% 58%, rgba(208, 18, 28, 0.22), transparent 70%),
-    radial-gradient(60% 40% at 50% 100%, rgba(255, 255, 255, 0.06), transparent 70%);
+  /* restrained: a breath of Rosso behind the car and a neutral floor falloff, not coloured light */
+  background: radial-gradient(40% 35% at 50% 52%, rgba(208, 18, 28, 0.1), transparent 70%),
+    radial-gradient(70% 45% at 50% 100%, rgba(255, 255, 255, 0.035), transparent 70%);
   opacity: 0;
   transition: opacity 1.2s var(--ease-out);
 }

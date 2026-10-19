@@ -75,14 +75,22 @@ export class VehicleModel {
 
     // Material slots resolve to concrete meshes now, so later material swaps
     // (variants, configurator) don't change which meshes a slot means.
+    // A slot is a list of clauses:
+    //   { components: [...] }                     every mesh of those components
+    //   { components: [...], material: 'Name' }   only meshes whose original material is 'Name'
+    //   { materials: [...] }                      every mesh in the asset using those materials
     this.slots = new Map();
-    for (const [name, slot] of Object.entries(registry.slots ?? {})) {
+    for (const [name, clauses] of Object.entries(registry.slots ?? {})) {
       const set = new Set();
-      for (const id of slot.components ?? []) this.meshes(id).forEach((m) => set.add(m));
-      if (slot.materials) {
-        const want = new Set(slot.materials);
-        this.scene.traverse((m) => m.isMesh && materialsOf(m).some((x) => want.has(x.name)) && set.add(m));
+      for (const clause of clauses) {
+        const keep = clause.material ? (m) => materialsOf(m).some((x) => x.name === clause.material) : () => true;
+        for (const id of clause.components ?? []) if (this.has(id)) this.meshes(id).filter(keep).forEach((m) => set.add(m));
+        if (clause.materials) {
+          const want = new Set(clause.materials);
+          this.scene.traverse((m) => m.isMesh && materialsOf(m).some((x) => want.has(x.name)) && set.add(m));
+        }
       }
+      if (!set.size) this.problems.push({ id: `slot:${name}`, required: false, message: 'slot resolves to no meshes' });
       this.slots.set(name, [...set]);
     }
 

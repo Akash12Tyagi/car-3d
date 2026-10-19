@@ -15,6 +15,8 @@
  * Selectors use the ORIGINAL glTF node names (see ../selectors.js).
  */
 
+const wheels = (part) => ['fl', 'fr', 'rl', 'rr'].map((c) => `wheel.${c}.${part}`);
+
 const corner = (id, node, rimMesh, label) => [
   { id: `wheel.${id}`, group: 'wheel', label: `${label} wheel assembly`, select: [`RootNode/${node}`], required: true, movable: true,
     notes: 'Node origin is the hub centre; children rotate with the wheel about local X.' },
@@ -81,13 +83,35 @@ export const ferrari458 = {
       notes: 'The closest thing to a chassis in this asset. Not separable. Material named Interior_light (swapped).' },
   ],
 
-  /** Material slots: what the configurator / scene code may restyle. */
+  /**
+   * Material slots: what look-dev and the configurator may restyle. Each slot is
+   * a list of clauses; a clause takes a component's meshes, optionally only those
+   * whose ORIGINAL material is `material` (the steering wheel mixes several).
+   * Slots resolve to fixed meshes at load, so restyling one slot never touches
+   * another, even where the source file shares one material between them.
+   */
   slots: {
-    paint: { components: ['body.shell'] },
-    rims: { components: ['wheel.fl.spokes', 'wheel.fr.spokes', 'wheel.rl.spokes', 'wheel.rr.spokes'] },
-    glass: { components: ['glass.main'] },
-    // Kept from the original three.js car example, which restyles this mesh as "trim".
-    detail: { components: ['interior.stitching'] },
+    paint: [{ components: ['body.shell'] }],
+    rims: [{ components: wheels('spokes') }, { components: wheels('barrel') }],
+    rubber: [{ components: wheels('tire') }],
+    brakeDiscs: [{ components: wheels('disc') }],
+    wheelNuts: [{ components: wheels('nuts') }],
+    badges: [{ components: ['body.badges', ...wheels('cap')] }, { components: ['interior.steering'], material: 'Ferrari_Yellow' }],
+    chrome: [{ components: ['body.trim.chrome'] }],
+    metalTrim: [{ components: ['body.trim.metal'] }, { components: ['interior.steering'], material: 'metal_gray' }],
+    plastic: [{ components: ['body.trim.plastic'] }],
+    blackTrim: [{ components: ['body.trim.grilles', 'body.wipers'] }],
+    glass: [{ components: ['glass.main'] }],
+    headLenses: [{ components: ['lights.head.lenses'] }],
+    drl: [{ components: ['lights.head.leds'] }],
+    tailLenses: [{ components: ['lights.tail.lenses'] }],
+    tailUnits: [{ components: ['lights.tail.units'] }, { components: ['interior.steering'], material: 'Taillight_Glass' }],
+    leather: [{ components: ['interior.leather'] }, { components: ['interior.steering'], material: 'Leather' }],
+    stitching: [{ components: ['interior.stitching'] }, { components: ['interior.steering'], material: 'Leather_red' }],
+    interiorPanels: [{ components: ['interior.panels'] }, { components: ['interior.steering'], material: 'Interior_dark' }],
+    tub: [{ components: ['structure.tub'] }],
+    carpet: [{ components: ['interior.carpet'] }],
+    carbon: [{ components: ['interior.carbon', 'interior.carbon.detail'] }, { components: ['interior.steering'], material: 'Carbon_Fiber' }],
   },
 
   /** Points on existing geometry, measured from the model (car space, metres). */
