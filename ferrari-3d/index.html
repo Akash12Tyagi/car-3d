@@ -132,31 +132,31 @@
         <div class="sticky anatomy">
           <div class="anat__head">
             <div class="eyebrow mono"><span>04</span>Anatomy</div>
-            <ol class="anat__timeline mono" aria-hidden="true">
-              <li data-beat="reveal">Reveal</li>
-              <li data-beat="exploded">Exploded</li>
-              <li data-beat="power">Power unit</li>
-              <li data-beat="reassembly">Reassembly</li>
-              <li data-beat="hero">Whole</li>
+            <ol class="anat__timeline mono" aria-label="Exploded-view states">
+              <li data-beat="whole"><button class="anat__state" type="button" data-state="whole"><span class="anat__num">01</span><span class="anat__label">Whole</span></button></li>
+              <li data-beat="exploded"><button class="anat__state" type="button" data-state="exploded"><span class="anat__num">02</span><span class="anat__label">Exploded</span></button></li>
+              <li data-beat="power"><button class="anat__state" type="button" data-state="power"><span class="anat__num">03</span><span class="anat__label">Power unit</span></button></li>
+              <li data-beat="reassembly"><button class="anat__state" type="button" data-state="reassembly"><span class="anat__num">04</span><span class="anat__label">Reassembly</span></button></li>
+              <li data-beat="hero"><button class="anat__state" type="button" data-state="hero" aria-label="Whole again, final composition"><span class="anat__num">05</span><span class="anat__label">Whole</span></button></li>
             </ol>
           </div>
 
           <div class="anat__beats">
-            <article class="anat__beat" data-beat="reveal">
+            <article class="anat__beat" data-beat="whole">
               <h2 class="headline">Out of <em class="serif">the dark.</em></h2>
-              <p class="body">Before the numbers, the object. One lamp, one line of light travelling down the flank.</p>
+              <p class="body">Before the numbers, the object. One line of light travelling down the flank of a car built from separate parts.</p>
             </article>
             <article class="anat__beat" data-beat="exploded">
               <h2 class="headline">Every part, <em class="serif">in its place.</em></h2>
-              <p class="body">Clamshells open on their hinges, doors swing from the A-pillar, wheels slide off their hubs. Each component leaves along the path it was fitted on.</p>
+              <p class="body">Clamshells open on their hinges, doors swing from the A-pillar, wheels slide off their hubs and the cockpit rises in layers. Each part leaves along the path it was fitted on.</p>
             </article>
             <article class="anat__beat" data-beat="power">
               <h2 class="headline">The power <em class="serif">unit.</em></h2>
-              <p class="body">Lifted clear of the front bay and held in the light: the heart of the package, isolated.</p>
+              <p class="body">Lifted straight out of the front bay, axles below. In this study model it is an envelope: the space a power unit occupies, not the engine itself.</p>
             </article>
             <article class="anat__beat" data-beat="reassembly">
               <h2 class="headline">Back <em class="serif">together.</em></h2>
-              <p class="body">Reverse order, same paths. Every panel returns to the exact position it left.</p>
+              <p class="body">Reverse order, same paths. Powertrain and cockpit first, then wheels, doors and body. Every part returns to the exact position it left.</p>
             </article>
             <article class="anat__beat" data-beat="hero">
               <h2 class="headline">Whole <em class="serif">again.</em></h2>
@@ -171,7 +171,7 @@
           <div class="anat__track" aria-hidden="true"><span></span></div>
 
           <div class="anat__loading mono" aria-live="polite">Preparing the engineering model <span>0%</span></div>
-          <img class="anat__fallback" src="./posters/anatomy-exploded.jpg" alt="Exploded view of the stand-in concept car: clamshells open, doors swung out, wheels, brakes and power unit separated" loading="lazy" />
+          <img class="anat__fallback" src="./posters/anatomy-exploded.jpg" alt="Exploded view of the stand-in concept car: clamshells open, doors swung out, wheels and brakes separated" loading="lazy" />
         </div>
       </section>
 

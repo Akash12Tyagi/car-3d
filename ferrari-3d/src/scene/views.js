@@ -14,6 +14,13 @@ import * as THREE from 'three';
  */
 export const FRONT = 180;
 
+/** Corners of a box, as points for fitDistance. */
+export function boxCorners(box) {
+  const out = [];
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) out.push(new THREE.Vector3(x, y, z));
+  return out;
+}
+
 export const VIEWS = {
   // Classic campaign three-quarter: low, ~60 mm, nose leading the frame
   hero34: { az: FRONT + 38, el: 6.5, fov: 24, ty: 0.5 },
@@ -39,17 +46,25 @@ const cache = new Map();
  * Distance at which the car (bounds in car space, yawed by `rot` degrees)
  * fills `width` × `height` of the frame (fractions of the full NDC extent)
  * for the given view and aspect ratio.
+ *
+ * Instead of one box, a set of `points` can be framed (e.g. the corners of
+ * every part's own bounds), which fits a spread-out subject — an exploded
+ * view — far more tightly than the corners of its overall box. Pass a stable
+ * `pointsKey` with them for caching.
  */
-export function fitDistance(view, { aspect, width, height, rot = 0, bounds = DEFAULT_BOUNDS }) {
-  const key = `${view.az}|${view.el}|${view.fov}|${view.ty}|${aspect.toFixed(3)}|${width}|${height}|${rot}|${bounds.max.x.toFixed(3)}|${bounds.max.z.toFixed(3)}`;
+export function fitDistance(view, { aspect, width, height, rot = 0, bounds = DEFAULT_BOUNDS, points = null, pointsKey = '' }) {
+  const b = points ? `pts:${pointsKey}` : [...bounds.min.toArray(), ...bounds.max.toArray()].map((v) => v.toFixed(3)).join(',');
+  const key = `${view.az}|${view.el}|${view.fov}|${view.tx ?? 0}|${view.ty}|${view.tz ?? 0}|${aspect.toFixed(3)}|${width}|${height}|${rot}|${b}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
   const yaw = THREE.MathUtils.degToRad(rot);
   const corners = [];
-  for (const x of [bounds.min.x, bounds.max.x])
-    for (const y of [bounds.min.y, bounds.max.y])
-      for (const z of [bounds.min.z, bounds.max.z]) corners.push(new THREE.Vector3(x, y, z).applyAxisAngle(THREE.Object3D.DEFAULT_UP, yaw));
+  if (points) for (const p of points) corners.push(p.clone().applyAxisAngle(THREE.Object3D.DEFAULT_UP, yaw));
+  else
+    for (const x of [bounds.min.x, bounds.max.x])
+      for (const y of [bounds.min.y, bounds.max.y])
+        for (const z of [bounds.min.z, bounds.max.z]) corners.push(new THREE.Vector3(x, y, z).applyAxisAngle(THREE.Object3D.DEFAULT_UP, yaw));
 
   camera.fov = view.fov;
   camera.aspect = aspect;
