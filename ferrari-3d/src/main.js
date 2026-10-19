@@ -3,8 +3,10 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 import Lenis from 'lenis';
-import { Experience, RIG_KEYS } from './experience.js';
+import { Experience, NullExperience, RIG_KEYS, webglAvailable } from './experience.js';
 import { EngineSound } from './engine-sound.js';
+import { Anatomy, BEATS } from './cinematic/anatomy.js';
+import { conceptCar } from './cinematic/manifest.js';
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -31,6 +33,8 @@ function keyframes() {
     hero: { ...top, dist: p ? 15.5 : 9.6, rot: p ? 0 : 90 },
     overture: { az: FRONT + 38, el: 7, dist: p ? 14 : 10.5, fov: 24, tx: 0, ty: p ? 1.5 : 0.5, tz: 0, rot: 0, shift: p ? 0 : 0.22, roll: 0 },
     design: { az: FRONT + 90, el: 1.5, dist: p ? 25 : 15.5, fov: p ? 24 : 17, tx: 0, ty: 0.55, tz: 0, rot: 0, shift: 0, roll: 0 },
+    // Behind the Anatomy curtain: drift back into the dark, then hand over to Performance
+    anatomy: { az: FRONT + 70, el: 4, dist: p ? 30 : 19, fov: p ? 24 : 20, tx: 0, ty: 0.55, tz: 0, rot: 0, shift: 0, roll: 0 },
     performance: { az: FRONT - 145, el: 16, dist: p ? 16 : 10.5, fov: 26, tx: 0, ty: p ? 0.9 : 0.45, tz: 0, rot: 0, shift: p ? 0 : -0.15, roll: 0 },
     launch: { az: FRONT + 62, el: 3, dist: p ? 9.5 : 7.2, fov: 34, tx: 0, ty: 0.42, tz: 0, rot: 0, shift: 0, roll: -2.5 },
     configure: { az: FRONT - 40, el: 11, dist: p ? 18 : 11, fov: 25, tx: 0, ty: p ? -0.5 : 0.4, tz: 0, rot: 0, shift: p ? 0 : 0.1, roll: 0 },
@@ -53,13 +57,19 @@ function renderLoader() {
   loaderBar.style.transform = `scaleX(${loadState.shown})`;
 }
 
-const exp = new Experience($('.webgl'), {
-  onProgress: (p) => {
-    loadState.real = p;
-    gsap.to(loadState, { shown: p * 0.9, duration: 0.6, ease: 'power2.out', onUpdate: renderLoader });
-  },
-  onLoad: () => document.fonts.ready.then(start),
-});
+const hasWebGL = webglAvailable();
+if (!hasWebGL) document.documentElement.classList.add('no-webgl');
+const exp = hasWebGL
+  ? new Experience($('.webgl'), {
+      reducedMotion,
+      onProgress: (p) => {
+        loadState.real = p;
+        gsap.to(loadState, { shown: p * 0.9, duration: 0.6, ease: 'power2.out', onUpdate: renderLoader });
+      },
+      onLoad: () => document.fonts.ready.then(start),
+    })
+  : new NullExperience();
+if (!hasWebGL) document.fonts.ready.then(start);
 if (coarse || window.innerWidth < 860) exp.setPixelRatioCap(1.5);
 window.__exp = exp;
 exp.snap = new URLSearchParams(location.search).has('snap');
@@ -127,6 +137,7 @@ function setupScroll() {
   heroScroll();
   textReveals();
   hotspots();
+  anatomyChapter();
   performanceChapter();
   launch();
   configurator();
@@ -155,6 +166,8 @@ function frame() {
   }
   if (introDone || i > 0) exp.setRig(rig);
 
+  anatomyFrame(y, vh);
+
   // Active chapter = the one covering the middle of the viewport
   let active = 0;
   for (let k = 0; k < chapters.length; k++) if (y + vh * 0.5 >= tops[k]) active = k;
@@ -163,7 +176,7 @@ function frame() {
   // Wheels roll with scroll velocity outside of the launch sequence
   if (!launchState.active) {
     exp.wheelSpeed = clamp(lenis.velocity * 0.35, -14, 14);
-    sound.setRpm(1000 + Math.min(Math.abs(lenis.velocity) * 120, 3500) + perfState.rpm * 0.85);
+    sound.setRpm(1000 + Math.min(Math.abs(lenis.velocity) * 120, 3500) + perfState.rpm * 0.85 + anatomyState.rpm);
   }
 
   $('.rail__fill').style.transform = `scaleY(${clamp(y / (document.documentElement.scrollHeight - vh))})`;
@@ -278,7 +291,134 @@ function hotspots() {
   });
 }
 
-const perfState = { rpm: 0 };
+/* ------------------------------------------------------------------ */
+/* Anatomy: the exploded-view cinematic                                */
+/* The section is tall and its content sticky, so the page itself does */
+/* the pinning (no scroll hijack). Section progress drives one pure    */
+/* timeline in the Anatomy stage; scrolling up replays it in reverse.  */
+/* ------------------------------------------------------------------ */
+const anatomyState = { rpm: 0, stage: null, beat: '', requested: false, calloutsOn: false };
+
+function anatomyChapter() {
+  const section = $('#anatomy');
+  const loading = $('.anat__loading');
+  if (!hasWebGL) return;
+
+  const stage = new Anatomy(exp.renderer, {
+    manifest: conceptCar,
+    haze: exp.haze,
+    reducedMotion,
+    mobile: coarse || window.innerWidth < 860,
+  });
+  stage.snap = exp.snap;
+  exp.setStage(stage);
+  anatomyState.stage = stage;
+  window.__anatomy = stage;
+
+  // Callouts are generated from the manifest, so they follow whatever asset is loaded
+  const layer = $('.callouts');
+  anatomyState.callouts = conceptCar.callouts.map((c) => {
+    const el = document.createElement('div');
+    el.className = c.key ? 'callout' : 'callout callout--minor';
+    el.innerHTML = `<i></i><p><b>${c.title}</b>${c.text}</p>`;
+    layer.appendChild(el);
+    return { ...c, el, pos: { x: 0, y: 0 } };
+  });
+
+  // Lazy: fetch the model once the visitor is heading this way (or the page is idle)
+  const request = () => {
+    if (anatomyState.requested) return;
+    anatomyState.requested = true;
+    stage
+      .load()
+      .then(() => section.classList.add('is-ready'))
+      .catch((err) => {
+        console.error('[anatomy] model failed to load', err);
+        section.classList.add('is-failed');
+      });
+  };
+  anatomyState.request = request;
+  (window.requestIdleCallback || ((fn) => setTimeout(fn, 1200)))(() => setTimeout(request, 1500));
+
+  const pct = loading.querySelector('span');
+  const tick = () => {
+    pct.textContent = `${Math.round(stage.loadProgress * 100)}%`;
+    if (stage.ready) gsap.ticker.remove(tick);
+  };
+  gsap.ticker.add(tick);
+
+  // Release GPU memory when the page is torn down (bfcache, tab close)
+  window.addEventListener('pagehide', (e) => {
+    if (e.persisted) return;
+    stage.dispose();
+    exp.haze.dispose();
+    exp.exhaust.dispose();
+  });
+
+  $('.anat__skip').addEventListener('click', () => lenis.scrollTo('#performance', { duration: 1.6 }));
+}
+
+function anatomyFrame(y, vh) {
+  const stage = anatomyState.stage;
+  const section = $('#anatomy');
+  const idx = chapters.indexOf(section);
+  const top = tops[idx];
+  const span = section.offsetHeight - vh;
+  const end = top + span;
+  const p = clamp((y - top) / span);
+
+  if (!stage) {
+    section.style.setProperty('--anat-p', p);
+    return;
+  }
+  if (y > tops[idx - 1] - vh) anatomyState.request();
+
+  // Hand-over curtain: up before the cut into the stage, down once it is dark there;
+  // the same on the way out, so neither scene is ever seen switching.
+  const smooth = (a, b, v) => {
+    const t = clamp((v - a) / (b - a));
+    return t * t * (3 - 2 * t);
+  };
+  const inside = y >= top - 0.08 * vh && y <= end + 0.06 * vh;
+  let curtain = Math.max(
+    smooth(top - 0.5 * vh, top - 0.08 * vh, y) * (1 - smooth(top + 0.02 * vh, top + 0.25 * vh, y)),
+    smooth(end - 0.12 * vh, end, y) * (1 - smooth(end + 0.1 * vh, end + 0.6 * vh, y))
+  );
+  if (inside && !stage.ready) curtain = 1;
+  $('.curtain').style.opacity = curtain.toFixed(3);
+  section.classList.toggle('is-waiting', inside && !stage.ready);
+
+  stage.active = inside && stage.ready;
+  stage.setProgress(p);
+  section.style.setProperty('--anat-p', p.toFixed(4));
+
+  // Beat copy
+  const beat = (BEATS.find((b) => p >= b.from && p < b.to) ?? BEATS[BEATS.length - 1]).id;
+  if (beat !== anatomyState.beat) {
+    anatomyState.beat = beat;
+    $$('.anat__beat, .anat__timeline li').forEach((el) => el.classList.toggle('is-active', el.dataset.beat === beat));
+  }
+
+  // Callouts on the fully exploded view
+  const on = stage.active && p > 0.43 && p < 0.555;
+  if (on !== anatomyState.calloutsOn) {
+    anatomyState.calloutsOn = on;
+    $('.callouts').classList.toggle('is-on', on);
+  }
+  if (on) {
+    const cx = window.innerWidth / 2;
+    for (const c of anatomyState.callouts) {
+      if (!stage.project(c.part, c.pos)) continue;
+      c.el.style.transform = `translate3d(${c.pos.x.toFixed(1)}px, ${c.pos.y.toFixed(1)}px, 0)`;
+      c.el.classList.toggle('flip', c.pos.x > cx);
+    }
+  }
+
+  // A gentle idle-to-midrange rev while the power unit is on stage
+  anatomyState.rpm = stage.active ? (stage.focus ?? 0) * 2600 : 0;
+}
+
+const perfState = { rpm: 0, lastRpm: 0 };
 function performanceChapter() {
   const C = 2 * Math.PI * 88;
   const ARC = C * 0.75;
@@ -310,11 +450,21 @@ function performanceChapter() {
       // Rev up, hold at the limiter, then settle
       const rpm = p < 0.7 ? easeInOut(p / 0.7) * 9000 : 9000 - (Math.sin(p * 90) * 0.5 + 0.5) * 250;
       perfState.rpm = self.isActive ? rpm : 0;
+      // Exhaust follows the revs; each touch of the limiter fires a pulse from the tailpipes
+      exp.exhaust.throttle = self.isActive ? (rpm / 9000) * 0.75 : 0;
+      if (self.isActive && rpm > 8820 && perfState.lastRpm <= 8820) exp.exhaust.pulse(0.8);
+      perfState.lastRpm = rpm;
       fill.style.strokeDasharray = `${(rpm / 10000) * ARC} ${C}`;
       rpmEl.textContent = Math.round(rpm / 10) * 10;
     },
-    onLeave: () => (perfState.rpm = 0),
-    onLeaveBack: () => (perfState.rpm = 0),
+    onLeave: () => {
+      perfState.rpm = 0;
+      exp.exhaust.throttle = 0;
+    },
+    onLeaveBack: () => {
+      perfState.rpm = 0;
+      exp.exhaust.throttle = 0;
+    },
   });
 
   $$('[data-count]').forEach((el, k) => {
@@ -340,7 +490,7 @@ function performanceChapter() {
   });
 }
 
-const launchState = { active: false };
+const launchState = { active: false, gear: 0 };
 function launch() {
   const kmhEl = $('.launch__kmh');
   const gearEl = $('.launch__gear');
@@ -358,6 +508,7 @@ function launch() {
       if (!isActive) {
         exp.streaks = 0;
         exp.shake = 0;
+        exp.exhaust.throttle = 0;
       }
     },
     onUpdate: ({ progress: p, isActive }) => {
@@ -379,7 +530,11 @@ function launch() {
         exp.streaks = clamp(p * 1.6);
         exp.shake = clamp(p * 1.2) * 0.8;
         sound.setRpm(p > 0.002 ? rpm : 1000, 0.05);
+        // Exhaust load tracks the revs; every upshift cuts and re-lights with a pulse
+        exp.exhaust.throttle = p > 0.002 ? 0.3 + 0.7 * ((rpm - 3800) / 5200) : 0.1;
+        if (launchState.gear && gear !== launchState.gear) exp.exhaust.pulse(1);
       }
+      launchState.gear = gear;
       rows[0].style.transform = `translateX(${-p * 55}%)`;
       rows[1].style.transform = `translateX(${-50 + p * 45}%)`;
     },

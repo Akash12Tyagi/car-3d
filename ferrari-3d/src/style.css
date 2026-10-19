@@ -679,6 +679,241 @@ main {
   right: -16px;
 }
 
+/* Anatomy (exploded-view cinematic) */
+#anatomy {
+  height: 640vh;
+}
+.anatomy {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  pointer-events: none;
+}
+.anat__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+.anat__timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 22px;
+  color: var(--muted);
+}
+.anat__timeline li {
+  position: relative;
+  padding-top: 12px;
+  opacity: 0.45;
+  transition: opacity 0.5s, color 0.5s;
+}
+.anat__timeline li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  transform-origin: 0 50%;
+  transform: scaleX(0.4);
+  transition: transform 0.6s var(--ease-out), background 0.5s;
+}
+.anat__timeline li.is-active {
+  opacity: 1;
+  color: var(--fg);
+}
+.anat__timeline li.is-active::before {
+  transform: scaleX(1);
+  background: var(--rosso);
+}
+.anat__beats {
+  position: relative;
+  align-self: end;
+  min-height: 260px;
+}
+.anat__beat {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  max-width: 560px;
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.6s var(--ease-out), transform 0.9s var(--ease-out);
+}
+.anat__beat.is-active {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.12s;
+}
+.anat__beat .headline {
+  font-size: clamp(40px, 4.8vw, 88px);
+}
+.anat__beat .body {
+  margin: 18px 0 0;
+}
+.anat__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  padding-top: 22px;
+}
+.anat__credit {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 9.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.anat__skip {
+  pointer-events: auto;
+  white-space: nowrap;
+  padding: 11px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  transition: background 0.4s, color 0.4s, border-color 0.4s;
+}
+.anat__skip:hover {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+.anat__track {
+  position: absolute;
+  left: var(--gutter);
+  right: calc(var(--gutter) + 40px);
+  bottom: calc(var(--gutter) + 58px);
+  height: 1px;
+  background: var(--line);
+}
+.anat__track span {
+  display: block;
+  height: 100%;
+  background: var(--rosso);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--anat-p, 0));
+}
+.anat__loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+#anatomy.is-waiting .anat__loading {
+  opacity: 1;
+}
+#anatomy.is-failed .anat__loading {
+  opacity: 0;
+}
+.anat__fallback {
+  display: none;
+}
+
+/* Fixed hand-over curtain between the main scene and the cinematic */
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  background: #030303;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Callouts pinned to exploded parts */
+.callouts {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+}
+.callout {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  transition: opacity 0.45s;
+  color: #fff;
+}
+.callouts.is-on .callout {
+  opacity: 1;
+}
+.callouts.is-on .callout:nth-child(2) { transition-delay: 0.08s; }
+.callouts.is-on .callout:nth-child(3) { transition-delay: 0.16s; }
+.callouts.is-on .callout:nth-child(4) { transition-delay: 0.24s; }
+.callouts.is-on .callout:nth-child(5) { transition-delay: 0.32s; }
+.callouts.is-on .callout:nth-child(6) { transition-delay: 0.4s; }
+.callout i {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  border: 1px solid #fff;
+  background: var(--rosso);
+}
+.callout p {
+  position: absolute;
+  left: 14px;
+  bottom: 10px;
+  width: 190px;
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.66);
+}
+.callout p b {
+  display: block;
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff;
+  margin-bottom: 3px;
+}
+.callout.flip p {
+  left: auto;
+  right: 14px;
+  text-align: right;
+}
+
+/* No WebGL: the page stays a readable, static site */
+.no-webgl .webgl,
+.no-webgl .loader,
+.no-webgl .anat__loading,
+.no-webgl .anat__skip,
+.no-webgl .anat__track,
+.no-webgl .anat__timeline {
+  display: none;
+}
+.no-webgl #anatomy {
+  height: 160vh;
+}
+.no-webgl .anat__fallback {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+  opacity: 0.85;
+}
+.no-webgl .anat__beat[data-beat='exploded'] {
+  opacity: 1;
+  transform: none;
+}
+
 /* Performance */
 .performance {
   display: grid;
@@ -961,6 +1196,46 @@ main {
 /* Responsive                                                        */
 /* ---------------------------------------------------------------- */
 @media (max-width: 860px) {
+  #anatomy {
+    height: 520vh;
+  }
+  .anat__timeline li:not(.is-active) {
+    display: none;
+  }
+  .anat__beats {
+    min-height: 210px;
+  }
+  .anat__beat .headline {
+    font-size: 40px;
+  }
+  .anat__beat .body {
+    font-size: 14px;
+  }
+  .anat__credit {
+    max-width: 24ch;
+    font-size: 8.5px;
+  }
+  .anat__credit-more {
+    display: none;
+  }
+  .anat__track {
+    right: var(--gutter);
+    bottom: calc(var(--gutter) + 70px);
+  }
+  .callout--minor {
+    display: none;
+  }
+  .callout p {
+    width: auto;
+    white-space: nowrap;
+    font-size: 0;
+    border-bottom: 0;
+  }
+  .callout p b {
+    font-size: 9px;
+    margin: 0;
+  }
+
   .nav {
     grid-template-columns: 1fr auto;
   }
