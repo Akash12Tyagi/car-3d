@@ -9,6 +9,8 @@ import { createHeroIntro, introMode } from './hero-intro.js';
 import { EngineSound } from './engine-sound.js';
 import { Anatomy } from './cinematic/anatomy.js';
 import { stateAt, calloutsAt } from './cinematic/timeline.js';
+import { layoutLabels } from './ui/labels.js';
+import { DesignExplorer } from './design/explorer.js';
 import { conceptCar } from './cinematic/manifest.js';
 import { viewRig, FRONT } from './scene/views.js';
 
@@ -211,7 +213,7 @@ function setupScroll() {
   buildRail();
   heroScroll();
   textReveals();
-  hotspots();
+  designChapter();
   anatomyChapter();
   performanceChapter();
   launch();
@@ -242,7 +244,8 @@ function frame() {
       rig[key] = from + ((b[key] ?? RIG_DEFAULTS[key]) - from) * t;
     }
   }
-  if (introDone || i > 0) exp.setRig(rig);
+  // The Design explorer may take the camera to a feature (one owner at a time: it blends from and back to this rig)
+  if (introDone || i > 0) exp.setRig(design ? design.apply(rig) : rig);
 
   anatomyFrame(y, vh);
 
@@ -356,18 +359,29 @@ function textReveals() {
   );
 }
 
-function hotspots() {
-  const els = $$('.hotspot');
-  els.forEach((el) => {
-    const [fx, fy, fz] = el.dataset.f.split(',').map(Number);
-    exp.addHotspot(el, fx, fy, fz);
+/* ------------------------------------------------------------------ */
+/* Design: explore the real features of the car (src/design/)          */
+/* ------------------------------------------------------------------ */
+let design = null;
+
+function designChapter() {
+  if (!hasWebGL || !exp.car) return;
+  design = new DesignExplorer({
+    exp,
+    lenis,
+    section: $('#design'),
+    layer: $('.hotspots'),
+    index: $('.design__index'),
+    panel: $('.design__panel'),
+    reducedMotion,
   });
+  design.setup();
+  window.__design = design;
   ScrollTrigger.create({
     trigger: '#design',
     start: 'top -5%',
     end: 'bottom 85%',
-    onToggle: ({ isActive }) =>
-      gsap.to(els, { opacity: isActive ? 1 : 0, duration: isActive ? 0.8 : 0.3, stagger: isActive ? 0.12 : 0, overwrite: true }),
+    onToggle: ({ isActive }) => design.setInView(isActive),
   });
 }
 
@@ -424,7 +438,7 @@ function anatomyChapter() {
       el.style.setProperty('--d', `${(i * 0.08).toFixed(2)}s`);
       el.innerHTML = `<i></i><p><b>${c.title}</b>${c.text}</p>`;
       layer.appendChild(el);
-      return { ...c, set, el, pos: { x: 0, y: 0 } };
+      return { ...c, set, el, label: el.querySelector('p'), pos: { x: 0, y: 0 } };
     })
   );
 
@@ -528,42 +542,16 @@ function anatomyFrame(y, vh) {
     $('.callouts').classList.toggle('is-on', !!set);
     for (const c of anatomyState.callouts) c.el.classList.toggle('is-shown', c.set === set);
   }
-  if (set) layoutCallouts(anatomyState.callouts.filter((c) => c.set === set && getComputedStyle(c.el).display !== 'none' && stage.project(c.part, c.pos, c.at)));
+  if (set) {
+    const items = anatomyState.callouts.filter((c) => c.set === set && getComputedStyle(c.el).display !== 'none' && stage.project(c.part, c.pos, c.at));
+    // Labels stay below the state buttons and off the chapter copy
+    const head = $('.anat__head').getBoundingClientRect();
+    const copy = $('.anat__beat.is-active')?.getBoundingClientRect();
+    layoutLabels(items, { minTop: head.bottom + 8, exclude: copy ? [copy] : [] });
+  }
 
   // A gentle idle-to-midrange rev while the powertrain is on stage (only if sound is on)
   anatomyState.rpm = stage.active ? (stage.focus ?? 0) * 2600 : 0;
-}
-
-/**
- * Place annotation labels beside their markers (right of the marker on the left
- * half of the screen, left of it on the right half). Where two labels would
- * overlap, the upper one is lifted clear on a leader line. Lifts ease, so labels
- * never jump as the camera drifts.
- */
-function layoutCallouts(list) {
-  const placed = [];
-  const minTop = 84; // keep clear of the navigation
-  for (const c of [...list].sort((a, b) => b.pos.y - a.pos.y)) {
-    const label = c.el.querySelector('p');
-    c.w ??= label.offsetWidth;
-    c.h ??= label.offsetHeight;
-    const flip = c.pos.x > window.innerWidth / 2;
-    const x0 = flip ? c.pos.x - 14 - c.w : c.pos.x + 14;
-    const x1 = x0 + c.w;
-    let lift = 0;
-    for (let guard = 0; guard < placed.length + 1; guard++) {
-      const y1 = c.pos.y - 10 - lift;
-      const hit = placed.find((r) => x0 < r.x1 && x1 > r.x0 && y1 - c.h < r.y1 + 6 && y1 > r.y0 - 6);
-      if (!hit) break;
-      lift = c.pos.y - 10 - (hit.y0 - 6);
-    }
-    lift = Math.max(0, Math.min(lift, c.pos.y - 10 - c.h - minTop));
-    placed.push({ x0, x1, y0: c.pos.y - 10 - lift - c.h, y1: c.pos.y - 10 - lift });
-    c.lift = c.lift === undefined ? lift : c.lift + (lift - c.lift) * 0.2;
-    c.el.style.transform = `translate3d(${c.pos.x.toFixed(1)}px, ${c.pos.y.toFixed(1)}px, 0)`;
-    c.el.style.setProperty('--lift', `${c.lift.toFixed(1)}px`);
-    c.el.classList.toggle('flip', flip);
-  }
 }
 
 const perfState = { rpm: 0, lastRpm: 0 };

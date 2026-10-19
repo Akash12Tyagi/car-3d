@@ -41,12 +41,7 @@
     <div class="callouts" aria-hidden="true"></div>
     <div class="grain" aria-hidden="true"></div>
 
-    <div class="hotspots" aria-hidden="true">
-      <div class="hotspot hotspot--up" data-f="0.08,0.6,0.07"><i></i><span class="mono">01</span><p><b>Twin LED blades</b>Headlamps drawn like a gesture, not a lamp.</p></div>
-      <div class="hotspot hotspot--up" data-f="0.0,0.55,0.66"><i></i><span class="mono">02</span><p><b>Flank intake</b>Feeds the radiators; shapes the shoulder.</p></div>
-      <div class="hotspot hotspot--down flip" data-f="0.5,0.3,0.99"><i></i><span class="mono">03</span><p><b>Triple exhaust</b>Three tailpipes in a row, centred like a signature.</p></div>
-      <div class="hotspot hotspot--down" data-f="0.0,0.3,0.24"><i></i><span class="mono">04</span><p><b>20" forged wheels</b>Carbon-ceramic brakes behind every spoke.</p></div>
-    </div>
+    <div class="hotspots" aria-hidden="true"></div>
 
     <header class="nav">
       <a href="#hero" class="nav__mark" data-hover>
@@ -121,10 +116,33 @@
             <div class="eyebrow mono"><span>03</span>Design</div>
             <h2 class="headline split">Sculpted <em class="serif">by air.</em></h2>
           </div>
-          <p class="design__foot body split-lines">
-            Front winglets that flex at speed to cut drag. A shape with no spoiler, because the body is
-            the spoiler. Every surface earns its place in the wind tunnel.
-          </p>
+          <div class="design__foot">
+            <p class="body split-lines">
+              Front winglets that flex at speed to cut drag. A shape with no spoiler, because the body is
+              the spoiler. Every surface earns its place in the wind tunnel.
+            </p>
+            <nav class="design__index" aria-label="Explore the design">
+              <p class="mono">Explore</p>
+              <ol>
+                <li><button type="button" data-feature="headlamps" aria-pressed="false"><span class="mono">01</span>Headlamps</button></li>
+                <li><button type="button" data-feature="intakes" aria-pressed="false"><span class="mono">02</span>Front intakes</button></li>
+                <li><button type="button" data-feature="wheels" aria-pressed="false"><span class="mono">03</span>Wheels</button></li>
+                <li><button type="button" data-feature="brakes" aria-pressed="false"><span class="mono">04</span>Brakes</button></li>
+                <li><button type="button" data-feature="exhaust" aria-pressed="false"><span class="mono">05</span>Exhaust</button></li>
+              </ol>
+            </nav>
+          </div>
+          <aside class="design__panel" aria-live="polite" aria-label="Design detail" hidden>
+            <p class="design__panel-n mono" data-field="n"></p>
+            <h3 class="design__panel-title" data-field="title" tabindex="-1"></h3>
+            <p class="design__panel-text" data-field="text"></p>
+            <p class="design__panel-note mono" data-field="note"></p>
+            <div class="design__panel-nav">
+              <button type="button" class="mono" data-action="prev" aria-label="Previous detail">←</button>
+              <button type="button" class="mono" data-action="next" aria-label="Next detail">→</button>
+              <button type="button" class="design__back mono" data-action="close">Back to the car <span aria-hidden="true">✕</span></button>
+            </div>
+          </aside>
         </div>
       </section>
 
