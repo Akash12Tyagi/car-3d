@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <title>Rosso — 458 Italia</title>
+    <meta name="description" content="An unofficial, scroll-driven 3D concept experience for the Ferrari 458 Italia." />
+  </head>
+  <body class="is-loading">
+    <!-- ============ LOADER ============ -->
+    <div class="loader" aria-hidden="true">
+      <div class="loader__top mono"><span>Maranello</span><span>44.5320° N, 10.8644° E</span></div>
+      <div class="loader__count display"><span class="loader__num">000</span></div>
+      <div class="loader__bar"><span></span></div>
+      <div class="loader__bottom mono"><span>Warming the V8</span><span class="loader__pct">0%</span></div>
+    </div>
+
+    <!-- ============ FIXED LAYERS ============ -->
+    <div class="backdrop" aria-hidden="true">
+      <div class="backdrop__glow"></div>
+    </div>
+    <div class="giant" aria-hidden="true">
+      <div class="giant__word display">ROSSO</div>
+    </div>
+    <canvas class="webgl" aria-hidden="true"></canvas>
+    <div class="signature script" aria-hidden="true">Italia</div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <div class="hotspots" aria-hidden="true">
+      <div class="hotspot hotspot--up" data-f="0.08,0.6,0.07"><i></i><span class="mono">01</span><p><b>Twin LED blades</b>Headlamps drawn like a gesture, not a lamp.</p></div>
+      <div class="hotspot hotspot--up" data-f="0.0,0.55,0.66"><i></i><span class="mono">02</span><p><b>Flank intake</b>Feeds the radiators; shapes the shoulder.</p></div>
+      <div class="hotspot hotspot--down flip" data-f="0.5,0.3,0.99"><i></i><span class="mono">03</span><p><b>Triple exhaust</b>Stacked tailpipes, centred like a signature.</p></div>
+      <div class="hotspot hotspot--down" data-f="0.0,0.3,0.24"><i></i><span class="mono">04</span><p><b>20" forged wheels</b>Carbon-ceramic brakes behind every spoke.</p></div>
+    </div>
+
+    <header class="nav">
+      <a href="#hero" class="nav__mark" data-hover>
+        <span class="display">458</span><span class="mono">Italia&nbsp;/&nbsp;Concept</span>
+      </a>
+      <div class="nav__chapter mono">
+        <span class="nav__idx">01</span><span class="nav__sep"></span><span class="nav__name">Prologue</span>
+      </div>
+      <div class="nav__right">
+        <button class="nav__sound mono" data-hover aria-pressed="false">
+          <span class="eq"><i></i><i></i><i></i><i></i></span><span class="nav__sound-label">Sound off</span>
+        </button>
+        <a href="#configure" class="nav__cta mono" data-hover data-magnetic>Configure</a>
+      </div>
+    </header>
+
+    <nav class="rail" aria-label="Chapters">
+      <div class="rail__track"><span class="rail__fill"></span></div>
+      <ol class="mono"></ol>
+    </nav>
+
+    <div class="cursor" aria-hidden="true"><div class="cursor__dot"></div><div class="cursor__ring"><span class="mono"></span></div></div>
+
+    <!-- ============ CONTENT ============ -->
+    <main>
+      <section id="hero" class="chapter" data-chapter="Prologue" data-theme="paper">
+        <div class="sticky hero">
+          <div class="hero__meta mono">
+            <span>Ferrari 458 Italia</span>
+            <span>2009 — 2015</span>
+            <span>Design / Pininfarina</span>
+          </div>
+          <div class="hero__bottom">
+            <div class="hero__left">
+              <p class="hero__note">
+                A mid-engined V8 from Maranello: 4.5 litres, no turbochargers, a seven-speed dual-clutch
+                gearbox and bodywork shaped as much by the wind tunnel as by the pen. This is a study in
+                how it moves.
+              </p>
+              <div class="hero__scroll mono"><span class="hero__line"></span>Scroll to ignite</div>
+            </div>
+            <h1 class="hero__title">
+              <span class="serif">The last great</span>
+              <span class="display">Aspirated V8.</span>
+            </h1>
+          </div>
+        </div>
+      </section>
+
+      <section id="overture" class="chapter" data-chapter="Overture" data-theme="ink">
+        <div class="sticky overture">
+          <div class="overture__copy">
+            <div class="eyebrow mono"><span>02</span>Overture</div>
+            <h2 class="headline split">
+              Born at <em class="serif">nine thousand</em> revolutions.
+            </h2>
+            <p class="body split-lines">
+              Nine thousand rpm. 127 horsepower per litre. A flat-plane crank that screams instead of
+              rumbles. The 458 was engineered around a single sensation — the moment the needle stops
+              climbing and the horizon starts arriving.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="design" class="chapter" data-chapter="Design" data-theme="ink">
+        <div class="sticky design">
+          <div class="design__head">
+            <div class="eyebrow mono"><span>03</span>Design</div>
+            <h2 class="headline split">Sculpted <em class="serif">by air.</em></h2>
+          </div>
+          <p class="design__foot body split-lines">
+            Front winglets that flex at speed to cut drag. A shape with no spoiler, because the body is
+            the spoiler. Every surface earns its place in the wind tunnel.
+          </p>
+        </div>
+      </section>
+
+      <section id="performance" class="chapter" data-chapter="Performance" data-theme="ink">
+        <div class="sticky performance">
+          <div class="perf__copy">
+            <div class="eyebrow mono"><span>04</span>Performance</div>
+            <h2 class="headline split">Numbers <em class="serif">that sing.</em></h2>
+          </div>
+          <div class="perf__tach">
+            <svg viewBox="0 0 200 200" class="tach">
+              <circle class="tach__bg" cx="100" cy="100" r="88" />
+              <circle class="tach__red" cx="100" cy="100" r="88" />
+              <circle class="tach__fill" cx="100" cy="100" r="88" />
+              <g class="tach__ticks"></g>
+            </svg>
+            <div class="tach__read">
+              <span class="display tach__rpm">0</span>
+              <span class="mono">rpm × 1</span>
+            </div>
+          </div>
+          <dl class="stats">
+            <div class="stat"><dt class="mono">Power</dt><dd><span class="display" data-count="570">0</span><small class="mono">CV @ 9000</small></dd></div>
+            <div class="stat"><dt class="mono">Torque</dt><dd><span class="display" data-count="540">0</span><small class="mono">Nm @ 6000</small></dd></div>
+            <div class="stat"><dt class="mono">0 — 100</dt><dd><span class="display" data-count="3.4" data-decimals="1">0</span><small class="mono">seconds</small></dd></div>
+            <div class="stat"><dt class="mono">Top speed</dt><dd><span class="display" data-count="325">0</span><small class="mono">km/h +</small></dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section id="launch" class="chapter" data-chapter="Launch" data-theme="ink">
+        <div class="sticky launch">
+          <div class="marquee display" aria-hidden="true">
+            <div class="marquee__row">0—100 IN 3.4 SECONDS · 0—100 IN 3.4 SECONDS · 0—100 IN 3.4 SECONDS ·</div>
+            <div class="marquee__row marquee__row--outline">FLAT-OUT · 9000 RPM · FLAT-OUT · 9000 RPM · FLAT-OUT · 9000 RPM ·</div>
+          </div>
+          <div class="launch__hud mono">
+            <div><span>Speed</span><b class="launch__kmh">000</b><em>km/h</em></div>
+            <div><span>Gear</span><b class="launch__gear">1</b><em>of 7</em></div>
+            <div><span>Elapsed</span><b class="launch__time">0.00</b><em>s</em></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="configure" class="chapter" data-chapter="Atelier" data-theme="ink">
+        <div class="sticky configure">
+          <div class="config__panel">
+            <div class="eyebrow mono"><span>06</span>Atelier</div>
+            <h2 class="headline split">Make it <em class="serif">yours.</em></h2>
+            <div class="config__group">
+              <div class="config__label mono">Paint — <span class="config__paint-name">Rosso Corsa</span></div>
+              <div class="swatches" role="radiogroup" aria-label="Paint colour">
+                <button class="swatch is-active" data-hover data-paint="#9c0a0e" data-name="Rosso Corsa" style="--c:#c1121b" aria-label="Rosso Corsa"></button>
+                <button class="swatch" data-hover data-paint="#f2b400" data-metal="0.15" data-name="Giallo Modena" style="--c:#f2c200" aria-label="Giallo Modena"></button>
+                <button class="swatch" data-hover data-paint="#0c0c0e" data-metal="0.6" data-name="Nero Daytona" style="--c:#16161a" aria-label="Nero Daytona"></button>
+                <button class="swatch" data-hover data-paint="#e8e8e4" data-metal="0.1" data-name="Bianco Avus" style="--c:#ecebe6" aria-label="Bianco Avus"></button>
+                <button class="swatch" data-hover data-paint="#0d2a6b" data-name="Blu Pozzi" style="--c:#1d3f8f" aria-label="Blu Pozzi"></button>
+                <button class="swatch" data-hover data-paint="#3c3f43" data-name="Grigio Silverstone" style="--c:#5a5e63" aria-label="Grigio Silverstone"></button>
+              </div>
+            </div>
+            <div class="config__group">
+              <div class="config__label mono">Wheels — <span class="config__rim-name">Forged Silver</span></div>
+              <div class="chips">
+                <button class="chip is-active mono" data-hover data-rim="#d9d9d9" data-rough="0.28">Forged Silver</button>
+                <button class="chip mono" data-hover data-rim="#1a1a1a" data-rough="0.55">Matte Black</button>
+                <button class="chip mono" data-hover data-rim="#b8913f" data-rough="0.22">Diamond Gold</button>
+              </div>
+            </div>
+            <p class="config__hint mono">Drag anywhere to walk around the car</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="finale" class="chapter" data-chapter="Finale" data-theme="paper">
+        <div class="sticky finale">
+          <h2 class="finale__title">
+            <span class="display">Rosso.</span> <span class="serif">Forever.</span>
+          </h2>
+          <a href="#hero" class="finale__cta mono" data-hover data-magnetic>Book a private viewing <span>→</span></a>
+          <footer class="footer mono">
+            <span>Unofficial concept prototype — not affiliated with or endorsed by Ferrari S.p.A.</span>
+            <span>3D model “Ferrari 458 Italia” by vicent091036 (CC BY) via the three.js examples</span>
+            <span>Built with three.js · GSAP · Lenis</span>
+          </footer>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
