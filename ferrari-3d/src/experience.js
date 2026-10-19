@@ -40,7 +40,7 @@ export class NullExperience {
     this.haze = null;
   }
   setRig() {}
-  addHotspot() {}
+  onFrame() {}
   setPaint() {}
   setRims() {}
   setPixelRatioCap() {}
@@ -60,7 +60,7 @@ export class Experience {
     this.wheelSpeedDamped = 0;
     this.streaks = 0; // 0..1 speed-line intensity
     this.shake = 0;
-    this.hotspots = [];
+    this.frameListeners = []; // called after every rendered frame of the main scene, with the camera final
     this.stage = null; // an alternate scene (the Anatomy cinematic) that takes over the canvas while active
 
     this.rig = { az: 0, el: 89.5, dist: 20, fov: 30, tx: 0, ty: 0, tz: 0, rot: 90, shift: 0, roll: 0, parallax: 1 };
@@ -258,18 +258,10 @@ export class Experience {
     this.renderer.compile(this.scene, this.camera);
   }
 
-  /** Point in car-local space from normalised bbox coordinates (0..1). */
-  carPoint(fx, fy, fz) {
-    const b = this.bbox;
-    return new THREE.Vector3(
-      THREE.MathUtils.lerp(b.min.x, b.max.x, fx),
-      THREE.MathUtils.lerp(b.min.y, b.max.y, fy),
-      THREE.MathUtils.lerp(b.min.z, b.max.z, fz)
-    );
-  }
-
-  addHotspot(el, fx, fy, fz) {
-    this.hotspots.push({ el, local: null, f: [fx, fy, fz] });
+  /** Run `fn(exp)` after every main-scene frame (camera final): screen-space overlays. Returns an unsubscribe. */
+  onFrame(fn) {
+    this.frameListeners.push(fn);
+    return () => (this.frameListeners = this.frameListeners.filter((f) => f !== fn));
   }
 
   /** Studio light level (0..1) and rotation of the reflections (radians about Y). */
@@ -410,21 +402,6 @@ export class Experience {
     this.exhaust.setView(this.renderer.getPixelRatio(), this.height, this.camera.fov);
 
     this.haze.render(this.scene, this.camera, this.exhaust.hazeSources(), t);
-    this.updateHotspots();
-  }
-
-  updateHotspots() {
-    if (!this.car || !this.hotspots.length) return;
-    const v = new THREE.Vector3();
-    const toCam = new THREE.Vector3();
-    for (const h of this.hotspots) {
-      if (!h.local) h.local = this.carPoint(...h.f);
-      v.copy(h.local).applyMatrix4(this.car.matrixWorld);
-      toCam.copy(this.camera.position).sub(v).normalize();
-      v.project(this.camera);
-      const x = (v.x * 0.5 + 0.5) * this.width;
-      const y = (-v.y * 0.5 + 0.5) * this.height;
-      h.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-    }
+    for (const fn of this.frameListeners) fn(this);
   }
 }
