@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/check-assets.mjs",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:assets": "node scripts/check-assets.mjs --verbose"
   },
   "dependencies": {
     "@fontsource-variable/inter-tight": "^5.3.0",

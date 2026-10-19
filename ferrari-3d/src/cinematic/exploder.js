@@ -4,15 +4,16 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 
 /**
- * Binds a part manifest to a loaded glTF scene and poses it for any value of
- * the explode timeline E (0 = assembled, 1 = fully exploded).
+ * Binds a part manifest to a loaded vehicle and poses it for any value of
+ * the explode timeline E (0 = assembled, 1 = fully exploded). Parts reference
+ * registry component IDs; the VehicleModel supplies the actual objects.
  *
  * The pose is a pure function of E: nothing accumulates between frames, so
  * scrolling backwards replays the exact path in reverse, and E = 0 restores
  * every node to its stored rest transform (bit-for-bit, not approximately).
  */
 export class Exploder {
-  constructor(root, manifest) {
+  constructor(root, manifest, vehicle) {
     this.root = root;
     this.parts = [];
     this.byId = new Map();
@@ -21,8 +22,7 @@ export class Exploder {
     root.updateMatrixWorld(true);
 
     for (const def of manifest.parts) {
-      const nodes = def.nodes.map((n) => root.getObjectByName(n)).filter(Boolean);
-      def.nodes.forEach((n) => !root.getObjectByName(n) && this.missing.push(n));
+      const nodes = def.components.flatMap((id) => (vehicle.has(id) ? vehicle.nodes(id) : (this.missing.push(id), [])));
       if (!nodes.length) continue;
 
       const entries = nodes.map((node) => {
@@ -63,7 +63,7 @@ export class Exploder {
       this.parts.push(part);
       this.byId.set(def.id, part);
     }
-    if (this.missing.length) console.warn('[exploder] nodes not found in asset:', this.missing.join(', '));
+    if (this.missing.length) console.warn('[exploder] components not available in this asset:', this.missing.join(', '));
 
     this._m = new THREE.Matrix4();
     this._t = new THREE.Matrix4();

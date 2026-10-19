@@ -1,9 +1,8 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { Exploder } from './exploder.js';
+import { assets, assetDebug } from '../vehicle/asset-loader.js';
+import { VehicleModel } from '../vehicle/vehicle-model.js';
 
-const BASE = import.meta.env.BASE_URL;
 const DEG = Math.PI / 180;
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const smooth = (a, b, v) => {
@@ -207,53 +206,41 @@ export class Anatomy {
 
   /* -------------------------------- load ------------------------------- */
 
+  /** Load through the shared asset loader (one fetch, one Draco worker pool). Retries after a failure. */
   load() {
     if (this.loading) return this.loading;
-    const manager = new THREE.LoadingManager();
-    const draco = new DRACOLoader(manager);
-    draco.setDecoderPath(`${BASE}draco/`);
-    const loader = new GLTFLoader(manager);
-    loader.setDRACOLoader(draco);
-
-    this.loading = new Promise((resolve, reject) => {
-      loader.load(
-        `${BASE}${this.manifest.url}`,
-        (gltf) => {
-          this.setup(gltf);
-          draco.dispose();
-          resolve(this);
-        },
-        (e) => {
-          if (e.total) this.loadProgress = e.loaded / e.total;
-        },
-        reject
-      );
-    });
+    const registry = this.manifest.registry;
+    this.loading = assets
+      .loadModel(registry.url, { onProgress: (p) => (this.loadProgress = p) })
+      .then((gltf) => {
+        this.setup(gltf);
+        return this;
+      })
+      .catch((err) => {
+        this.loading = null;
+        throw err;
+      });
     return this.loading;
   }
 
   setup(gltf) {
+    const vehicle = new VehicleModel(gltf, this.manifest.registry); // also hides registry-flagged marks
+    vehicle.report({ verbose: assetDebug });
+    if (!vehicle.ok) throw new Error(`[vehicle:${vehicle.registry.id}] required components are missing (see console)`);
+    this.vehicle = vehicle;
+
     const model = gltf.scene;
-    for (const name of this.manifest.hide) {
-      const n = model.getObjectByName(name);
-      if (n) n.visible = false;
+    model.traverse((o) => o.isMesh && (o.castShadow = true));
+    // Re-tint the asset's own paint materials to the site's Rosso
+    const paints = new Set(vehicle.slot('paint').flatMap((m) => (Array.isArray(m.material) ? m.material : [m.material])));
+    for (const m of paints) {
+      m.color.set('#b0121b');
+      m.clearcoat = 1;
+      m.clearcoatRoughness = 0.04;
     }
-    const paints = new Set(this.manifest.paintMaterials);
-    model.traverse((o) => {
-      if (!o.isMesh) return;
-      o.castShadow = true;
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) {
-        if (paints.has(m.name)) {
-          m.color.set('#b0121b');
-          m.clearcoat = 1;
-          m.clearcoatRoughness = 0.04;
-        }
-      }
-    });
     this.model = model;
     this.scene.add(model);
-    this.exploder = new Exploder(model, this.manifest);
+    this.exploder = new Exploder(model, this.manifest, vehicle);
     this.focusPart = this.exploder.byId.get(this.manifest.focus);
     this.renderer.compile(this.scene, this.camera);
     this.ready = true;

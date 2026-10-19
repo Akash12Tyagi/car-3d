@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { assets, assetDebug } from './vehicle/asset-loader.js';
+import { VehicleModel } from './vehicle/vehicle-model.js';
+import { ferrari458 } from './vehicle/registry/ferrari-458.js';
 import { HeatHaze } from './fx/heat-haze.js';
 import { Exhaust } from './fx/exhaust.js';
 
-const BASE = import.meta.env.BASE_URL;
 const DEG = Math.PI / 180;
 const damp = (a, b, lambda, dt) => THREE.MathUtils.lerp(a, b, 1 - Math.exp(-lambda * dt));
 
@@ -16,9 +16,6 @@ const damp = (a, b, lambda, dt) => THREE.MathUtils.lerp(a, b, 1 - Math.exp(-lamb
  *   rot  car yaw in degrees, shift horizontal framing offset (-0.5..0.5 of viewport)
  */
 export const RIG_KEYS = ['az', 'el', 'dist', 'fov', 'tx', 'ty', 'tz', 'rot', 'shift', 'roll'];
-
-// The 458's three tailpipes, in car space (measured from the model's chrome tips)
-const TAILPIPES = [-0.105, 0, 0.105].map((x) => new THREE.Vector3(x, 0.4, 2.27));
 
 export function webglAvailable() {
   try {
@@ -47,7 +44,7 @@ export class NullExperience {
 }
 
 export class Experience {
-  constructor(canvas, { onProgress, onLoad, reducedMotion = false } = {}) {
+  constructor(canvas, { onProgress, onLoad, onError, reducedMotion = false } = {}) {
     this.canvas = canvas;
     this.clock = new THREE.Clock();
     this.pointer = new THREE.Vector2();
@@ -90,9 +87,8 @@ export class Experience {
     this.exhaust = new Exhaust({ reducedMotion });
     this.scene.add(this.exhaust.points);
 
-    this.manager = new THREE.LoadingManager();
-    this.manager.onProgress = (_url, loaded, total) => onProgress?.(loaded / total);
-    this.loadCar().then(() => onLoad?.());
+    this.callbacks = { onProgress, onLoad, onError };
+    this.load();
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -247,24 +243,41 @@ export class Experience {
     this.scene.add(this.streakMesh);
   }
 
-  async loadCar() {
-    const draco = new DRACOLoader(this.manager);
-    draco.setDecoderPath(`${BASE}draco/`);
-    const loader = new GLTFLoader(this.manager);
-    loader.setDRACOLoader(draco);
+  /** Load (or retry loading) the car; reports through the constructor callbacks. */
+  load() {
+    if (this.loading) return this.loading;
+    const { onLoad, onError } = this.callbacks;
+    this.loading = this.loadCar().then(
+      () => onLoad?.(),
+      (err) => {
+        this.loading = null; // allow a retry
+        console.error(err);
+        onError?.(err);
+      }
+    );
+    return this.loading;
+  }
 
+  async loadCar() {
+    const report = (p) => this.callbacks.onProgress?.(p);
     const [gltf, aoTex] = await Promise.all([
-      loader.loadAsync(`${BASE}models/ferrari.glb`),
-      new THREE.TextureLoader(this.manager).loadAsync(`${BASE}models/ferrari_ao.png`),
+      assets.loadModel(ferrari458.url, { onProgress: (p) => report(p * 0.95) }),
+      assets.loadTexture('models/ferrari_ao.png'),
     ]);
 
-    const car = gltf.scene.children[0];
+    // Components are addressed by registry ID, never by mesh name or index
+    const vehicle = new VehicleModel(gltf, ferrari458);
+    vehicle.report({ verbose: assetDebug });
+    if (!vehicle.ok) throw new Error(`[vehicle:${ferrari458.id}] required components are missing (see console)`);
+    this.vehicle = vehicle;
+
+    const car = vehicle.root;
     this.bbox = new THREE.Box3().setFromObject(car, true);
-    car.getObjectByName('body').material = this.bodyMaterial;
-    ['rim_fl', 'rim_fr', 'rim_rr', 'rim_rl'].forEach((n) => (car.getObjectByName(n).material = this.rimMaterial));
-    car.getObjectByName('trim').material = this.trimMaterial;
-    car.getObjectByName('glass').material = this.glassMaterial;
-    this.wheels = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'].map((n) => car.getObjectByName(n));
+    vehicle.setSlotMaterial('paint', this.bodyMaterial);
+    vehicle.setSlotMaterial('rims', this.rimMaterial);
+    vehicle.setSlotMaterial('detail', this.trimMaterial);
+    vehicle.setSlotMaterial('glass', this.glassMaterial);
+    this.wheels = ['wheel.fl', 'wheel.fr', 'wheel.rl', 'wheel.rr'].map((id) => vehicle.node(id));
 
     // Contact shadow: the baked AO texture is white with a dark footprint.
     // Invert it into alpha so it works on any page background colour.
@@ -285,12 +298,15 @@ export class Experience {
     this.shadowMaterial = shadow.material;
     car.add(shadow);
 
-    for (const tip of TAILPIPES) {
+    // Exhaust emitters sit on the measured tailpipe tips from the registry
+    const outflow = new THREE.Vector3(...vehicle.anchor('exhaustDirection'));
+    for (const tip of vehicle.anchor('exhaustTips')) {
       const emitter = new THREE.Object3D();
-      emitter.position.copy(tip);
+      emitter.position.set(...tip);
       car.add(emitter);
-      this.exhaust.addEmitter(emitter, new THREE.Vector3(0, 0, 1));
+      this.exhaust.addEmitter(emitter, outflow);
     }
+    report(1);
 
     this.car = car;
     this.carRoot.add(car);
