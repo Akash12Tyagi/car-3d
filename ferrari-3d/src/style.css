@@ -34,10 +34,6 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
-html.lenis,
-html.lenis body {
-  height: auto;
-}
 .lenis.lenis-smooth {
   scroll-behavior: auto !important;
 }

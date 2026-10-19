@@ -1,3 +1,4 @@
+import 'lenis/dist/lenis.css';
 import './style.css';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -123,7 +124,12 @@ function measure() {
 }
 
 function setupScroll() {
-  lenis = new Lenis({ lerp: reducedMotion ? 1 : 0.085, wheelMultiplier: 0.9, touchMultiplier: 1.4 });
+  lenis = new Lenis({
+    lerp: reducedMotion ? 1 : 0.085,
+    wheelMultiplier: 0.9,
+    touchMultiplier: 1.4,
+    autoRaf: false, // driven by gsap.ticker below so Lenis and ScrollTrigger share one frame
+  });
   lenis.on('scroll', ScrollTrigger.update);
   gsap.ticker.add((time) => lenis.raf(time * 1000));
   gsap.ticker.lagSmoothing(0);
