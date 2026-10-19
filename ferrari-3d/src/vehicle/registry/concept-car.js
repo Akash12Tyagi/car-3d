@@ -127,7 +127,10 @@ export const conceptCar = {
   missing: [
     'A real engine / power unit (only an 89-vertex placeholder volume)',
     'Gearbox, exhaust system and tailpipes — so no exhaust can be emitted from this car',
+    'Engine and gearbox mounts',
     'Suspension arms, springs/dampers, steering rack',
+    'Front and rear axles as separate nodes (one mesh of simple cylinders spans both)',
+    'Left and right seats as separate nodes (one component, split only by material)',
     'Separate bumpers (they belong to the front/rear clamshells)',
   ],
 };

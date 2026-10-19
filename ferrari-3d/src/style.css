@@ -775,7 +775,6 @@ main {
 }
 .anat__timeline li {
   position: relative;
-  padding-top: 12px;
   opacity: 0.45;
   transition: opacity 0.5s, color 0.5s;
 }
@@ -791,6 +790,9 @@ main {
   transform: scaleX(0.4);
   transition: transform 0.6s var(--ease-out), background 0.5s;
 }
+.anat__timeline li:hover {
+  opacity: 0.8;
+}
 .anat__timeline li.is-active {
   opacity: 1;
   color: var(--fg);
@@ -798,6 +800,23 @@ main {
 .anat__timeline li.is-active::before {
   transform: scaleX(1);
   background: var(--rosso);
+}
+.anat__state {
+  pointer-events: auto;
+  padding: 12px 0 6px;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.anat__state:focus-visible {
+  outline: 1px solid var(--rosso);
+  outline-offset: 4px;
+}
+.anat__num {
+  margin-right: 8px;
+  opacity: 0.6;
 }
 .anat__beats {
   position: relative;
@@ -913,14 +932,10 @@ main {
   transition: opacity 0.45s;
   color: #fff;
 }
-.callouts.is-on .callout {
+.callouts.is-on .callout.is-shown {
   opacity: 1;
+  transition-delay: var(--d, 0s);
 }
-.callouts.is-on .callout:nth-child(2) { transition-delay: 0.08s; }
-.callouts.is-on .callout:nth-child(3) { transition-delay: 0.16s; }
-.callouts.is-on .callout:nth-child(4) { transition-delay: 0.24s; }
-.callouts.is-on .callout:nth-child(5) { transition-delay: 0.32s; }
-.callouts.is-on .callout:nth-child(6) { transition-delay: 0.4s; }
 .callout i {
   position: absolute;
   width: 9px;
@@ -930,10 +945,20 @@ main {
   border: 1px solid #fff;
   background: var(--rosso);
 }
+/* Leader from the marker up to a label lifted clear of another */
+.callout::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 5px;
+  width: 1px;
+  height: var(--lift, 0px);
+  background: rgba(255, 255, 255, 0.35);
+}
 .callout p {
   position: absolute;
   left: 14px;
-  bottom: 10px;
+  bottom: calc(10px + var(--lift, 0px));
   width: 190px;
   margin: 0;
   padding-bottom: 8px;
@@ -941,6 +966,7 @@ main {
   font-size: 12px;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.66);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85);
 }
 .callout p b {
   display: block;
@@ -1278,8 +1304,19 @@ main {
   #anatomy {
     height: 520vh;
   }
-  .anat__timeline li:not(.is-active) {
+  .anat__head {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .anat__timeline {
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+  .anat__timeline li:not(.is-active) .anat__label {
     display: none;
+  }
+  .anat__num {
+    margin-right: 6px;
   }
   .anat__beats {
     min-height: 210px;

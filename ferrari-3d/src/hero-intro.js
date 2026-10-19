@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import { fitDistance } from './scene/views.js';
+import { sampleMonotone } from './scene/spline.js';
 
 /* ==================================================================== */
 /* Hero intro — the opening shot                                          */
@@ -46,40 +47,8 @@ const T_FINAL = 5.2;
 const REVEALED = ['.giant__word', '.signature', '.nav > *', '.rail', '.hero__meta span', '.hero__title > span', '.hero__note', '.hero__scroll'];
 const CHANNELS = ['az', 'el', 'dist', 'fov', 'x', 'y', 'z'];
 
-/**
- * Monotone Hermite spline through timed keys, at rest at both ends. Tangents are
- * the harmonic mean of the neighbouring slopes (zero where a channel turns or
- * holds), so no channel overshoots its keys: the camera never dips below a key's
- * height or swings past an angle and back.
- */
-function sample(keys, t) {
-  const n = keys.length;
-  let i = 0;
-  while (i < n - 2 && t > keys[i + 1].t) i++;
-  const k0 = keys[Math.max(0, i - 1)];
-  const k1 = keys[i];
-  const k2 = keys[i + 1];
-  const k3 = keys[Math.min(n - 1, i + 2)];
-  const span = k2.t - k1.t;
-  const u = Math.min(1, Math.max(0, (t - k1.t) / span));
-  const u2 = u * u;
-  const u3 = u2 * u;
-  const out = {};
-  for (const c of CHANNELS) {
-    const v = (k) => (c === 'dist' ? Math.log(k[c]) : k[c]); // dolly in log space: even perceived speed
-    const slope = (a, b) => (v(b) - v(a)) / (b.t - a.t);
-    const tangent = (a, k, b) => {
-      const s0 = slope(a, k);
-      const s1 = slope(k, b);
-      return s0 * s1 <= 0 ? 0 : (2 * s0 * s1) / (s0 + s1);
-    };
-    const m1 = i === 0 ? 0 : tangent(k0, k1, k2) * span;
-    const m2 = i + 1 === n - 1 ? 0 : tangent(k1, k2, k3) * span;
-    const y = (2 * u3 - 3 * u2 + 1) * v(k1) + (u3 - 2 * u2 + u) * m1 + (-2 * u3 + 3 * u2) * v(k2) + (u3 - u2) * m2;
-    out[c] = c === 'dist' ? Math.exp(y) : y;
-  }
-  return out;
-}
+/** Camera position along the shot at time t (monotone spline, dolly in log space). */
+const sample = (keys, t) => sampleMonotone(keys, t, CHANNELS, { log: ['dist'] });
 
 /** Car-space shot → Experience rig (world space, car yawed by `rot`). */
 function toRig(s, rot, extra) {

@@ -7,7 +7,8 @@ import Lenis from 'lenis';
 import { Experience, NullExperience, RIG_KEYS, RIG_DEFAULTS, webglAvailable } from './experience.js';
 import { createHeroIntro, introMode } from './hero-intro.js';
 import { EngineSound } from './engine-sound.js';
-import { Anatomy, BEATS } from './cinematic/anatomy.js';
+import { Anatomy } from './cinematic/anatomy.js';
+import { stateAt, calloutsAt } from './cinematic/timeline.js';
 import { conceptCar } from './cinematic/manifest.js';
 import { viewRig, FRONT } from './scene/views.js';
 
@@ -170,6 +171,13 @@ function intro() {
       if (location.hash) {
         const target = document.querySelector(location.hash);
         if (target) lenis.scrollTo(target, { immediate: true, offset: 2 });
+      }
+      // The intro has just made the hero type visible. Scrubbed timelines that are already
+      // past their start (a deep link lands mid-page) must re-apply their own state,
+      // or the hero's ROSSO and signature would stay on screen over later chapters.
+      for (const st of ScrollTrigger.getAll()) {
+        if (!st.vars.scrub || !st.animation || st.progress <= 0) continue;
+        st.animation.progress(0, true).progress(st.progress, true);
       }
     },
   });
@@ -364,12 +372,31 @@ function hotspots() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Anatomy: the exploded-view cinematic                                */
+/* Anatomy: the exploded-view sequence                                 */
 /* The section is tall and its content sticky, so the page itself does */
-/* the pinning (no scroll hijack). Section progress drives one pure    */
-/* timeline in the Anatomy stage; scrolling up replays it in reverse.  */
+/* the pinning (no scroll hijack). Scroll progress and the state       */
+/* buttons both drive ONE playhead (cinematic/controller.js), never    */
+/* the parts directly; poses, lights and camera follow the playhead.   */
 /* ------------------------------------------------------------------ */
-const anatomyState = { rpm: 0, stage: null, beat: '', requested: false, calloutsOn: false };
+const anatomyState = { rpm: 0, stage: null, state: '', requested: false, calloutSet: null };
+
+function anatomySpan() {
+  const section = $('#anatomy');
+  const top = tops[chapters.indexOf(section)];
+  return { top, span: section.offsetHeight - window.innerHeight };
+}
+
+/** Play to a state from a button: the playhead tweens, the page moves to the state's anchor. */
+function goToAnatomyState(id) {
+  const stage = anatomyState.stage;
+  if (!stage?.ready) return;
+  const seq = stage.sequence;
+  // A second press on the state that is already playing skips to it
+  if (seq.mode === 'manual' && seq.target.id === id) return seq.finish();
+  const at = seq.goTo(id);
+  const { top, span } = anatomySpan();
+  lenis.scrollTo(top + at * span, { immediate: true, force: true });
+}
 
 function anatomyChapter() {
   const section = $('#anatomy');
@@ -379,6 +406,7 @@ function anatomyChapter() {
   const stage = new Anatomy(exp.renderer, {
     manifest: conceptCar,
     haze: exp.haze,
+    environment: exp.scene.environment,
     reducedMotion,
     mobile: coarse || window.innerWidth < 860,
   });
@@ -387,15 +415,18 @@ function anatomyChapter() {
   anatomyState.stage = stage;
   window.__anatomy = stage;
 
-  // Callouts are generated from the manifest, so they follow whatever asset is loaded
+  // Annotations are generated from the manifest, one set per held state
   const layer = $('.callouts');
-  anatomyState.callouts = conceptCar.callouts.map((c) => {
-    const el = document.createElement('div');
-    el.className = c.key ? 'callout' : 'callout callout--minor';
-    el.innerHTML = `<i></i><p><b>${c.title}</b>${c.text}</p>`;
-    layer.appendChild(el);
-    return { ...c, el, pos: { x: 0, y: 0 } };
-  });
+  anatomyState.callouts = Object.entries(conceptCar.callouts).flatMap(([set, list]) =>
+    list.map((c, i) => {
+      const el = document.createElement('div');
+      el.className = c.key ? 'callout' : 'callout callout--minor';
+      el.style.setProperty('--d', `${(i * 0.08).toFixed(2)}s`);
+      el.innerHTML = `<i></i><p><b>${c.title}</b>${c.text}</p>`;
+      layer.appendChild(el);
+      return { ...c, set, el, pos: { x: 0, y: 0 } };
+    })
+  );
 
   // Lazy: fetch the model once the visitor is heading this way, or in idle time
   // unless the visitor asked to save data / is on a very slow connection.
@@ -432,15 +463,22 @@ function anatomyChapter() {
     exp.exhaust.dispose();
   });
 
-  $('.anat__skip').addEventListener('click', () => lenis.scrollTo('#performance', { duration: 1.6 }));
+  // Manual control: state buttons; Esc completes a state that is playing
+  $$('.anat__state').forEach((btn) => btn.addEventListener('click', () => goToAnatomyState(btn.dataset.state)));
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && stage.sequence.mode === 'manual') stage.sequence.finish();
+  });
+  $('.anat__skip').addEventListener('click', () => {
+    stage.sequence.finish();
+    lenis.scrollTo('#performance', { duration: 1.6 });
+  });
 }
 
 function anatomyFrame(y, vh) {
   const stage = anatomyState.stage;
   const section = $('#anatomy');
   const idx = chapters.indexOf(section);
-  const top = tops[idx];
-  const span = section.offsetHeight - vh;
+  const { top, span } = anatomySpan();
   const end = top + span;
   const p = clamp((y - top) / span);
 
@@ -465,34 +503,67 @@ function anatomyFrame(y, vh) {
   $('.curtain').style.opacity = curtain.toFixed(3);
   section.classList.toggle('is-waiting', inside && !stage.ready);
 
+  // Entering (from either end, or after a jump) happens under the curtain:
+  // put the playhead on the scroll position instead of replaying the way there
+  const wasActive = stage.active;
   stage.active = inside && stage.ready;
+  if (stage.active && !wasActive) stage.sequence.jump(p);
   stage.setProgress(p);
-  section.style.setProperty('--anat-p', p.toFixed(4));
 
-  // Beat copy
-  const beat = (BEATS.find((b) => p >= b.from && p < b.to) ?? BEATS[BEATS.length - 1]).id;
-  if (beat !== anatomyState.beat) {
-    anatomyState.beat = beat;
-    $$('.anat__beat, .anat__timeline li').forEach((el) => el.classList.toggle('is-active', el.dataset.beat === beat));
+  const q = stage.ready ? stage.sequence.q : p;
+  section.style.setProperty('--anat-p', q.toFixed(4));
+
+  // Copy and state buttons follow the playhead (or the state a button is playing to)
+  const state = stage.ready ? stage.sequence.state.id : stateAt(p).id;
+  if (state !== anatomyState.state) {
+    anatomyState.state = state;
+    $$('.anat__beat, .anat__timeline li').forEach((el) => el.classList.toggle('is-active', el.dataset.beat === state));
+    $$('.anat__state').forEach((b) => (b.dataset.state === state ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
   }
 
-  // Callouts on the fully exploded view
-  const on = stage.active && p > 0.43 && p < 0.555;
-  if (on !== anatomyState.calloutsOn) {
-    anatomyState.calloutsOn = on;
-    $('.callouts').classList.toggle('is-on', on);
+  // Annotations only while a state is held
+  const set = stage.active ? calloutsAt(q) : null;
+  if (set !== anatomyState.calloutSet) {
+    anatomyState.calloutSet = set;
+    $('.callouts').classList.toggle('is-on', !!set);
+    for (const c of anatomyState.callouts) c.el.classList.toggle('is-shown', c.set === set);
   }
-  if (on) {
-    const cx = window.innerWidth / 2;
-    for (const c of anatomyState.callouts) {
-      if (!stage.project(c.part, c.pos)) continue;
-      c.el.style.transform = `translate3d(${c.pos.x.toFixed(1)}px, ${c.pos.y.toFixed(1)}px, 0)`;
-      c.el.classList.toggle('flip', c.pos.x > cx);
-    }
-  }
+  if (set) layoutCallouts(anatomyState.callouts.filter((c) => c.set === set && getComputedStyle(c.el).display !== 'none' && stage.project(c.part, c.pos, c.at)));
 
-  // A gentle idle-to-midrange rev while the power unit is on stage
+  // A gentle idle-to-midrange rev while the powertrain is on stage (only if sound is on)
   anatomyState.rpm = stage.active ? (stage.focus ?? 0) * 2600 : 0;
+}
+
+/**
+ * Place annotation labels beside their markers (right of the marker on the left
+ * half of the screen, left of it on the right half). Where two labels would
+ * overlap, the upper one is lifted clear on a leader line. Lifts ease, so labels
+ * never jump as the camera drifts.
+ */
+function layoutCallouts(list) {
+  const placed = [];
+  const minTop = 84; // keep clear of the navigation
+  for (const c of [...list].sort((a, b) => b.pos.y - a.pos.y)) {
+    const label = c.el.querySelector('p');
+    c.w ??= label.offsetWidth;
+    c.h ??= label.offsetHeight;
+    const flip = c.pos.x > window.innerWidth / 2;
+    const x0 = flip ? c.pos.x - 14 - c.w : c.pos.x + 14;
+    const x1 = x0 + c.w;
+    let lift = 0;
+    for (let guard = 0; guard < placed.length + 1; guard++) {
+      const y1 = c.pos.y - 10 - lift;
+      const hit = placed.find((r) => x0 < r.x1 && x1 > r.x0 && y1 - c.h < r.y1 + 6 && y1 > r.y0 - 6);
+      if (!hit) break;
+      lift = c.pos.y - 10 - (hit.y0 - 6);
+    }
+    lift = Math.max(0, Math.min(lift, c.pos.y - 10 - c.h - minTop));
+    placed.push({ x0, x1, y0: c.pos.y - 10 - lift - c.h, y1: c.pos.y - 10 - lift });
+    c.lift = c.lift === undefined ? lift : c.lift + (lift - c.lift) * 0.2;
+    c.el.style.transform = `translate3d(${c.pos.x.toFixed(1)}px, ${c.pos.y.toFixed(1)}px, 0)`;
+    c.el.style.setProperty('--lift', `${c.lift.toFixed(1)}px`);
+    c.el.classList.toggle('flip', flip);
+  }
 }
 
 const perfState = { rpm: 0, lastRpm: 0 };
