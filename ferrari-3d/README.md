@@ -16,7 +16,8 @@ See [RESEARCH.md](./RESEARCH.md) for the design research, roadmap and pitch demo
 cd ferrari-3d
 npm install
 npm run dev        # http://localhost:5173
-npm run build      # outputs dist/ (relative paths, works offline from any static server)
+npm run build      # validates the 3D asset registries, then outputs dist/ (relative paths, works offline)
+npm run check:assets   # full component report for both models
 npm run preview
 ```
 
@@ -30,13 +31,15 @@ src/main.js           boot, loader, Lenis + GSAP, camera keyframes per chapter, 
 src/experience.js     three.js scene: studio env map, materials, paint-sweep shader, streaks, hotspot projection
 src/engine-sound.js   procedural Web Audio V8 driven by rpm
 src/cinematic/        the Anatomy chapter: exploded-view cinematic
-  manifest.js         part manifest: which nodes move, on which hinge, in which order
+  manifest.js         part manifest: which components move, on which hinge, in which order
   exploder.js         poses the manifest for any explode value (pure function → exact reversal)
   anatomy.js          stage: lighting, fog, shadows, camera path, beats, power-unit FX
 src/fx/
   exhaust.js          tailpipe exhaust particles + pulse light (one Points draw call)
   heat-haze.js        screen-space heat shimmer pass (bypassed when idle)
 src/style.css         design tokens, typography, layout, responsive rules
+src/vehicle/          asset foundation: component registries, VehicleModel, shared loader (see docs/ASSETS.md)
+scripts/check-assets.mjs  validates registries against the GLB files (runs before every build)
 public/models         Draco-compressed glTF: ferrari.glb (+ AO), concept-car.glb (Anatomy stand-in)
 public/posters        static image used when WebGL is unavailable
 public/draco          Draco decoder
@@ -85,11 +88,7 @@ on purpose). The exhaust sequence runs on the 458 instead, which does have three
 Performance (revving to the limiter, rear ¾ view) and Launch (a pulse on every upshift, with the plume swept
 back by the airflow).
 
-**Swapping in the production model:** export the licensed, component-separated 458 (or any car) as glTF with
-one node per component and pivots at the real hinges and hubs. Then write a manifest like
-`src/cinematic/manifest.js`: node names, hinge axis and angle, move vector, window. If the asset has an engine
-and exhaust, set `focus` and `exhaust`. Unknown node names are reported in the console, and nothing else needs
-to change.
+**Swapping in the production model:** see [docs/ASSETS.md](docs/ASSETS.md) for the asset inventory, licensing status and the exact replacement-asset spec. In short: write a registry for the new file under `src/vehicle/registry/` using the same component IDs, make `npm run check:assets` pass, then adjust only the motions in `src/cinematic/manifest.js`.
 
 **Fallbacks:** the model lazy-loads in idle time after the main car, or as soon as the visitor reaches Design,
 whichever comes first, with progress shown if they arrive early. `prefers-reduced-motion` drops vibration,

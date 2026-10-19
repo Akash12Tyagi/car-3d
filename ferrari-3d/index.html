@@ -6,6 +6,10 @@
     <meta name="theme-color" content="#0b0b0c" />
     <title>Rosso — 458 Italia</title>
     <meta name="description" content="An unofficial, scroll-driven 3D concept experience for the Ferrari 458 Italia." />
+    <!-- Start the critical 3D downloads before the JS bundle has even parsed -->
+    <link rel="preload" href="/models/ferrari.glb" as="fetch" crossorigin />
+    <link rel="preload" href="/draco/draco_wasm_wrapper.js" as="fetch" crossorigin />
+    <link rel="preload" href="/draco/draco_decoder.wasm" as="fetch" crossorigin />
   </head>
   <body class="is-loading">
     <!-- ============ LOADER ============ -->
@@ -14,6 +18,14 @@
       <div class="loader__count display"><span class="loader__num">000</span></div>
       <div class="loader__bar"><span></span></div>
       <div class="loader__bottom mono"><span>Warming the V8</span><span class="loader__pct">0%</span></div>
+      <div class="loader__error" role="alert" hidden>
+        <p class="loader__error-title display">Stalled on the grid.</p>
+        <p class="loader__error-reason"></p>
+        <div class="loader__error-actions">
+          <button class="loader__retry mono" type="button">Try again</button>
+          <button class="loader__static mono" type="button">Continue without 3D</button>
+        </div>
+      </div>
     </div>
 
     <!-- ============ FIXED LAYERS ============ -->

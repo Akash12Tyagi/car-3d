@@ -217,6 +217,41 @@ button {
   height: 1px;
   background: rgba(255, 255, 255, 0.15);
 }
+.loader__error {
+  position: absolute;
+  inset: auto var(--gutter) var(--gutter);
+  padding: 28px;
+  background: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  max-width: 520px;
+}
+.loader__error[hidden] {
+  display: none;
+}
+.loader__error-title {
+  margin: 0 0 10px;
+  font-size: 40px;
+  color: var(--rosso);
+}
+.loader__error-reason {
+  margin: 0 0 22px;
+  color: rgba(235, 231, 224, 0.75);
+}
+.loader__error-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.loader__error-actions button {
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--paper);
+}
+.loader__error-actions .loader__retry {
+  background: var(--rosso);
+  border-color: var(--rosso);
+}
 .loader__bar span {
   display: block;
   height: 100%;
@@ -895,6 +930,7 @@ main {
 .no-webgl #anatomy {
   height: 160vh;
 }
+#anatomy.is-failed .anat__fallback,
 .no-webgl .anat__fallback {
   display: block;
   position: absolute;

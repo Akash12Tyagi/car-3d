@@ -58,7 +58,8 @@ function renderLoader() {
   loaderBar.style.transform = `scaleX(${loadState.shown})`;
 }
 
-const hasWebGL = webglAvailable();
+// `hasWebGL` becomes false if the visitor chooses to continue without 3D after a load failure
+let hasWebGL = webglAvailable();
 if (!hasWebGL) document.documentElement.classList.add('no-webgl');
 const exp = hasWebGL
   ? new Experience($('.webgl'), {
@@ -68,9 +69,36 @@ const exp = hasWebGL
         gsap.to(loadState, { shown: p * 0.9, duration: 0.6, ease: 'power2.out', onUpdate: renderLoader });
       },
       onLoad: () => document.fonts.ready.then(start),
+      onError: showLoadError,
     })
   : new NullExperience();
 if (!hasWebGL) document.fonts.ready.then(start);
+
+/* The main car failed to load: say why, offer a retry or the static site. */
+function showLoadError(err) {
+  const box = $('.loader__error');
+  const reason = {
+    'not-found': 'The 3D model file is missing from this deployment.',
+    http: 'The server refused the 3D model.',
+    network: 'The connection dropped while loading the 3D model.',
+    parse: 'The 3D model could not be read.',
+  }[err?.kind] ?? 'The 3D model could not be prepared.';
+  box.querySelector('.loader__error-reason').textContent = reason;
+  $('.loader').removeAttribute('aria-hidden');
+  box.hidden = false;
+}
+
+$('.loader__retry')?.addEventListener('click', () => {
+  $('.loader__error').hidden = true;
+  exp.load();
+});
+$('.loader__static')?.addEventListener('click', () => {
+  hasWebGL = false;
+  document.documentElement.classList.add('no-webgl');
+  exp.renderer?.setAnimationLoop(null);
+  $('.loader__error').hidden = true;
+  document.fonts.ready.then(start);
+});
 if (coarse || window.innerWidth < 860) exp.setPixelRatioCap(1.5);
 window.__exp = exp;
 exp.snap = new URLSearchParams(location.search).has('snap');
@@ -87,7 +115,7 @@ function start() {
   gsap
     .timeline()
     .to(loadState, { shown: 1, duration: 0.8, ease: 'power3.inOut', onUpdate: renderLoader })
-    .to('.loader__count, .loader__top, .loader__bottom, .loader__bar', { yPercent: -40, opacity: 0, duration: 0.7, ease: 'power3.in', stagger: 0.05 })
+    .to('.loader__count, .loader__top, .loader__bottom, .loader__bar, .loader__error', { yPercent: -40, opacity: 0, duration: 0.7, ease: 'power3.in', stagger: 0.05 })
     .to('.loader', { clipPath: 'inset(0 0 100% 0)', duration: 1.1, ease: 'expo.inOut' }, '-=0.25')
     .add(() => {
       $('.loader').remove();
@@ -331,20 +359,25 @@ function anatomyChapter() {
     return { ...c, el, pos: { x: 0, y: 0 } };
   });
 
-  // Lazy: fetch the model once the visitor is heading this way (or the page is idle)
+  // Lazy: fetch the model once the visitor is heading this way, or in idle time
+  // unless the visitor asked to save data / is on a very slow connection.
   const request = () => {
     if (anatomyState.requested) return;
     anatomyState.requested = true;
+    section.classList.remove('is-failed');
     stage
       .load()
       .then(() => section.classList.add('is-ready'))
       .catch((err) => {
-        console.error('[anatomy] model failed to load', err);
-        section.classList.add('is-failed');
+        console.error('[anatomy] model failed to load —', err.message);
+        section.classList.add('is-failed'); // the static exploded-view poster takes over
+        setTimeout(() => (anatomyState.requested = false), 15000); // allow one later retry on approach
       });
   };
   anatomyState.request = request;
-  (window.requestIdleCallback || ((fn) => setTimeout(fn, 1200)))(() => setTimeout(request, 1500));
+  const conn = navigator.connection;
+  const constrained = conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? '');
+  if (!constrained) (window.requestIdleCallback || ((fn) => setTimeout(fn, 1200)))(() => setTimeout(request, 1500));
 
   const pct = loading.querySelector('span');
   const tick = () => {
