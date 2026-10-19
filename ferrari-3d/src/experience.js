@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { assets, assetDebug } from './vehicle/asset-loader.js';
 import { VehicleModel } from './vehicle/vehicle-model.js';
 import { ferrari458 } from './vehicle/registry/ferrari-458.js';
+import { createStudioEnvironment, bakeContactShadow, createFloorPool } from './lookdev/studio.js';
+import { createLookdevMaterials, PAINT } from './lookdev/materials.js';
 import { HeatHaze } from './fx/heat-haze.js';
 import { Exhaust } from './fx/exhaust.js';
 
@@ -68,7 +70,8 @@ export class Experience {
       powerPreference: 'high-performance',
     });
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // Khronos PBR Neutral keeps the Rosso a true red (ACES pushes saturated reds towards orange/pink)
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
@@ -99,71 +102,21 @@ export class Experience {
     this.renderer.setAnimationLoop(() => this.tick());
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Studio lighting: a virtual photo studio of emissive softboxes that   */
-  /* is baked into a PMREM env map. This is what gives the paint those    */
-  /* long, clean "car commercial" reflection strips.                      */
-  /* ------------------------------------------------------------------ */
+  /** Studio lighting: see src/lookdev/studio.js. Image-based only — no per-frame light cost. */
   buildStudioEnvironment() {
-    const env = new THREE.Scene();
-    env.background = new THREE.Color(0x020202);
-    const plane = new THREE.PlaneGeometry(1, 1);
-    const light = (intensity, color = 0xffffff) =>
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(intensity), side: THREE.DoubleSide });
-
-    // Overhead strip softboxes running along the car's length
-    [-2.4, -0.8, 0.8, 2.4].forEach((x) => {
-      const m = new THREE.Mesh(plane, light(2.2));
-      m.rotation.x = Math.PI / 2;
-      m.position.set(x, 6, 0);
-      m.scale.set(0.7, 14, 1);
-      env.add(m);
-    });
-    // Tall side panels (give the flanks a crisp horizon line)
-    [-1, 1].forEach((s) => {
-      const m = new THREE.Mesh(plane, light(1.4));
-      m.rotation.y = (s * Math.PI) / 2;
-      m.position.set(s * 9, 2.2, 0);
-      m.scale.set(18, 1.6, 1);
-      env.add(m);
-    });
-    // Warm key from the front-left and cool rim from behind
-    const key = new THREE.Mesh(plane, light(3.5, 0xffe2c4));
-    key.position.set(-6, 3, -7);
-    key.lookAt(0, 0.5, 0);
-    key.scale.set(5, 3, 1);
-    env.add(key);
-    const rim = new THREE.Mesh(plane, light(2.5, 0xcfe0ff));
-    rim.position.set(5, 3.5, 8);
-    rim.lookAt(0, 0.5, 0);
-    rim.scale.set(6, 2, 1);
-    env.add(rim);
-    // Soft ground bounce
-    const floor = new THREE.Mesh(plane, light(0.12));
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -1;
-    floor.scale.set(40, 40, 1);
-    env.add(floor);
-
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(env, 0.035).texture;
-    pmrem.dispose();
+    // 512 px reflections on desktop; 256 px (a quarter of the GPU memory) on touch devices
+    const compact = matchMedia('(pointer: coarse)').matches || window.innerWidth < 860;
+    this.scene.environment = createStudioEnvironment(this.renderer, { size: compact ? 256 : 512 });
   }
 
   buildMaterials() {
     this.paint = {
-      from: new THREE.Color('#9c0a0e'),
-      to: new THREE.Color('#9c0a0e'),
+      from: new THREE.Color(PAINT.color),
+      to: new THREE.Color(PAINT.color),
       sweep: { value: 1 },
     };
 
-    this.bodyMaterial = new THREE.MeshPhysicalMaterial({
-      color: this.paint.to,
-      metalness: 0.75,
-      roughness: 0.32,
-      clearcoat: 1,
-      clearcoatRoughness: 0.025,
-    });
+    this.bodyMaterial = new THREE.MeshPhysicalMaterial({ ...PAINT, name: 'lookdev/paint', color: this.paint.to });
 
     // Paint "sweep": a world-space wipe from the old colour to the new one
     // with a glowing leading edge, injected into the stock physical shader.
@@ -200,17 +153,10 @@ export class Experience {
         );
     };
 
-    this.rimMaterial = new THREE.MeshStandardMaterial({ color: 0xd9d9d9, metalness: 1, roughness: 0.28 });
-    this.trimMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.6, roughness: 0.4 });
-    this.glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x050505,
-      metalness: 0.1,
-      roughness: 0,
-      transparent: true,
-      opacity: 0.72,
-      clearcoat: 1,
-      envMapIntensity: 1.6,
-    });
+    // One material per registry slot (src/lookdev/materials.js); the configurator restyles `rims`
+    this.lookdev = createLookdevMaterials();
+    this.rimMaterial = this.lookdev.rims;
+    this.glassMaterial = this.lookdev.glass;
   }
 
   buildStreaks() {
@@ -260,10 +206,7 @@ export class Experience {
 
   async loadCar() {
     const report = (p) => this.callbacks.onProgress?.(p);
-    const [gltf, aoTex] = await Promise.all([
-      assets.loadModel(ferrari458.url, { onProgress: (p) => report(p * 0.95) }),
-      assets.loadTexture('models/ferrari_ao.png'),
-    ]);
+    const gltf = await assets.loadModel(ferrari458.url, { onProgress: (p) => report(p * 0.95) });
 
     // Components are addressed by registry ID, never by mesh name or index
     const vehicle = new VehicleModel(gltf, ferrari458);
@@ -274,29 +217,15 @@ export class Experience {
     const car = vehicle.root;
     this.bbox = new THREE.Box3().setFromObject(car, true);
     vehicle.setSlotMaterial('paint', this.bodyMaterial);
-    vehicle.setSlotMaterial('rims', this.rimMaterial);
-    vehicle.setSlotMaterial('detail', this.trimMaterial);
-    vehicle.setSlotMaterial('glass', this.glassMaterial);
+    for (const [slot, material] of Object.entries(this.lookdev)) vehicle.setSlotMaterial(slot, material);
     this.wheels = ['wheel.fl', 'wheel.fr', 'wheel.rl', 'wheel.rr'].map((id) => vehicle.node(id));
 
-    // Contact shadow: the baked AO texture is white with a dark footprint.
-    // Invert it into alpha so it works on any page background colour.
-    const shadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.655 * 4, 1.3 * 4),
-      new THREE.ShaderMaterial({
-        transparent: true,
-        depthWrite: false,
-        uniforms: { map: { value: aoTex }, uOpacity: { value: 0.9 } },
-        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-        fragmentShader:
-          'uniform sampler2D map; uniform float uOpacity; varying vec2 vUv; void main(){ float a = 1.0 - texture2D(map, vUv).r; gl_FragColor = vec4(0.0,0.0,0.0, a * uOpacity); }',
-      })
-    );
-    shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.001;
-    shadow.renderOrder = 2;
-    this.shadowMaterial = shadow.material;
-    car.add(shadow);
+    // Ground contact: a shadow baked once from the real geometry, plus a soft
+    // floor light pool. Both are parented to the car so they follow its yaw.
+    this.contactShadow = bakeContactShadow(this.renderer, car, { width: 3.6, depth: 6.2 });
+    car.add(this.contactShadow);
+    this.floorPool = createFloorPool();
+    car.add(this.floorPool);
 
     // Exhaust emitters sit on the measured tailpipe tips from the registry
     const outflow = new THREE.Vector3(...vehicle.anchor('exhaustDirection'));
@@ -336,7 +265,7 @@ export class Experience {
     Object.assign(this.target, values);
   }
 
-  setPaint(hex, { metalness = 0.75, duration = 1.6 } = {}) {
+  setPaint(hex, { metalness = PAINT.metalness, duration = 1.6 } = {}) {
     this.paint.from.copy(this.paint.to);
     this.paint.to.set(hex);
     this.metalTarget = metalness;

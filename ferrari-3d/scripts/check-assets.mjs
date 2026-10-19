@@ -69,14 +69,22 @@ for (const registry of [ferrari458, conceptCar]) {
   }
   console.log(`  components: ${registry.components.length} — ` + Object.entries(groups).map(([g, ids]) => `${g} ${ids.length}`).join(', '));
 
-  for (const s of Object.entries(registry.slots ?? {})) {
-    const [name, slot] = s;
-    if (slot.components) for (const id of slot.components) if (!resolved.has(id)) { console.log(`  ✗ slot "${name}" references unresolved component ${id}`); failures++; }
-    if (slot.materials) {
-      const used = new Set(index.all.flatMap((n) => n.materials));
-      for (const m of slot.materials) if (!used.has(m)) { console.log(`  ✗ slot "${name}" material "${m}" is not used by any mesh`); failures++; }
+  const used = new Set(index.all.flatMap((n) => n.materials));
+  const subtreeMaterials = (n) => [...n.materials, ...n.children.flatMap(subtreeMaterials)];
+  for (const [name, clauses] of Object.entries(registry.slots ?? {})) {
+    if (!Array.isArray(clauses)) { console.log(`  ✗ slot "${name}" must be a list of clauses`); failures++; continue; }
+    for (const c of clauses) {
+      for (const id of c.components ?? []) {
+        if (!resolved.has(id)) { console.log(`  ✗ slot "${name}" references unresolved component ${id}`); failures++; continue; }
+        if (c.material && !resolved.get(id).some((n) => subtreeMaterials(n).includes(c.material))) {
+          console.log(`  ✗ slot "${name}": component ${id} has no mesh with material "${c.material}"`);
+          failures++;
+        }
+      }
+      for (const m of c.materials ?? []) if (!used.has(m)) { console.log(`  ✗ slot "${name}" material "${m}" is not used by any mesh`); failures++; }
     }
   }
+  console.log(`  slots: ${Object.keys(registry.slots ?? {}).join(', ')}`);
   const variants = (json.extensions?.KHR_materials_variants?.variants ?? []).map((v) => v.name);
   for (const v of registry.variants ?? []) if (!variants.includes(v)) { console.log(`  ✗ variant "${v}" not in asset`); failures++; }
 

@@ -39,8 +39,10 @@ src/fx/
   heat-haze.js        screen-space heat shimmer pass (bypassed when idle)
 src/style.css         design tokens, typography, layout, responsive rules
 src/vehicle/          asset foundation: component registries, VehicleModel, shared loader (see docs/ASSETS.md)
+src/lookdev/          studio environment, baked contact shadow, per-slot materials (see docs/LOOKDEV.md)
+src/scene/views.js    named camera views with distance fitted to the car's real bounds
 scripts/check-assets.mjs  validates registries against the GLB files (runs before every build)
-public/models         Draco-compressed glTF: ferrari.glb (+ AO), concept-car.glb (Anatomy stand-in)
+public/models         Draco-compressed glTF: ferrari.glb, concept-car.glb (Anatomy stand-in)
 public/posters        static image used when WebGL is unavailable
 public/draco          Draco decoder
 ```
