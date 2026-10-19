@@ -4,7 +4,8 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 import Lenis from 'lenis';
-import { Experience, NullExperience, RIG_KEYS, webglAvailable } from './experience.js';
+import { Experience, NullExperience, RIG_KEYS, RIG_DEFAULTS, webglAvailable } from './experience.js';
+import { createHeroIntro, introMode } from './hero-intro.js';
 import { EngineSound } from './engine-sound.js';
 import { Anatomy, BEATS } from './cinematic/anatomy.js';
 import { conceptCar } from './cinematic/manifest.js';
@@ -38,7 +39,8 @@ function keyframes() {
   const view = (name, width, height, shift = 0, extra = {}) => viewRig(name, { aspect, width, height, shift, bounds, ...extra });
   const top = { az: 0, el: 89.4, fov: 30, tx: 0, ty: 0, tz: 0, roll: 0, shift: 0 };
   return {
-    hero: { ...top, dist: p ? 15.5 : 9.6, rot: p ? 0 : 90 },
+    // Top-down poster shots: a much gentler pointer response, since yaw rotates the whole image
+    hero: { ...top, dist: p ? 15.5 : 9.6, rot: p ? 0 : 90, parallax: 0.3 },
     overture: p ? view('hero34', 0.98, 0.36, 0, { ty: 1.3 }) : view('hero34', 0.56, 0.64, 0.2),
     design: p ? view('profile', 0.92, 0.3, 0, { fov: 24 }) : view('profile', 0.64, 0.5),
     // Behind the Anatomy curtain: drift back into the dark, then hand over to Performance
@@ -46,7 +48,7 @@ function keyframes() {
     performance: p ? view('rear34', 0.95, 0.32, 0, { ty: 0.9 }) : view('rear34', 0.5, 0.48, -0.17),
     launch: { az: FRONT + 62, el: 3, dist: p ? 9.5 : 7.2, fov: 34, tx: 0, ty: 0.42, tz: 0, rot: 0, shift: 0, roll: -2.5 },
     configure: p ? view('atelier34', 0.98, 0.32, 0, { ty: -0.5 }) : view('atelier34', 0.52, 0.58, 0.19),
-    finale: { ...top, dist: p ? 19 : 13, rot: p ? 0 : 90, tz: p ? 1.5 : 1.15, roll: 0 },
+    finale: { ...top, dist: p ? 19 : 13, rot: p ? 0 : 90, tz: p ? 1.5 : 1.15, roll: 0, parallax: 0.3 },
   };
 }
 
@@ -110,8 +112,34 @@ if (coarse || window.innerWidth < 860) exp.setPixelRatioCap(1.5);
 window.__exp = exp;
 exp.snap = new URLSearchParams(location.search).has('snap');
 
-exp.rig = { ...exp.rig, ...keyframes().hero, dist: 34, rot: (isPortrait() ? 0 : 90) + 140, el: 89.4 };
-exp.setRig(exp.rig);
+// A reload always starts cleanly at the hero (no restored mid-page scroll under the intro);
+// a deep link (#configure …) skips the intro and opens at its section instead.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+if (!location.hash) window.scrollTo(0, 0);
+
+const chapters = $$('.chapter');
+let tops = [];
+let currentChapter = -1;
+
+/* Theme: chapters set it while scrolling; the intro may hold it (carbon studio before the lights come up) */
+let themeOverride = null;
+function applyTheme() {
+  document.documentElement.dataset.themeCurrent = themeOverride ?? chapters[Math.max(0, currentChapter)].dataset.theme;
+}
+function setTheme(theme) {
+  themeOverride = theme;
+  applyTheme();
+}
+
+const heroIntro = createHeroIntro({
+  exp,
+  heroRig: () => keyframes().hero,
+  isPortrait,
+  setTheme,
+  mode: introMode({ reducedMotion, hasWebGL }),
+});
+heroIntro.prepare(); // first frame of the intro, behind the loader
+window.__intro = heroIntro;
 
 const sound = new EngineSound();
 
@@ -133,26 +161,24 @@ function start() {
 
 function intro() {
   setupScroll();
-  const K = keyframes();
-  exp.setRig(K.hero);
-
-  const giant = SplitText.create('.giant__word', { type: 'chars', charsClass: 'char' });
-  const tl = gsap.timeline({ onComplete: () => (introDone = true) });
-  tl.from(giant.chars, { yPercent: 110, opacity: 0, duration: 1.4, ease: 'expo.out', stagger: 0.07 }, 0)
-    .to('.signature', { clipPath: 'inset(0 0% 0 0)', duration: 2.2, ease: 'power2.inOut' }, 0.9)
-    .from('.nav > *', { y: -30, opacity: 0, duration: 1, ease: 'expo.out', stagger: 0.08 }, 0.5)
-    .from('.hero__meta span, .hero__scroll', { y: 20, opacity: 0, duration: 1, ease: 'expo.out', stagger: 0.06 }, 0.8)
-    .from('.hero__title > span', { yPercent: 100, opacity: 0, duration: 1.2, ease: 'expo.out', stagger: 0.1 }, 1)
-    .from('.hero__note', { opacity: 0, duration: 1.4 }, 1.3)
-    .from('.rail', { opacity: 0, x: 20, duration: 1, ease: 'expo.out' }, 1.2);
+  // Scrolling is held until the shot settles; any attempt to scroll skips straight to the end
+  lenis.stop();
+  heroIntro.play({
+    onDone: () => {
+      introDone = true;
+      lenis.start();
+      if (location.hash) {
+        const target = document.querySelector(location.hash);
+        if (target) lenis.scrollTo(target, { immediate: true, offset: 2 });
+      }
+    },
+  });
 }
 
 /* ------------------------------------------------------------------ */
 /* Scroll                                                              */
 /* ------------------------------------------------------------------ */
-const chapters = $$('.chapter');
-let tops = [];
-let currentChapter = -1;
+
 
 function measure() {
   tops = chapters.map((c) => c.offsetTop);
@@ -203,7 +229,10 @@ function frame() {
     const a = K[chapters[i - 1].id];
     const b = K[chapters[i].id];
     rig = {};
-    for (const key of RIG_KEYS) rig[key] = a[key] + (b[key] - a[key]) * t;
+    for (const key of RIG_KEYS) {
+      const from = a[key] ?? RIG_DEFAULTS[key];
+      rig[key] = from + ((b[key] ?? RIG_DEFAULTS[key]) - from) * t;
+    }
   }
   if (introDone || i > 0) exp.setRig(rig);
 
@@ -227,7 +256,7 @@ function setChapter(index) {
   const prev = currentChapter;
   currentChapter = index;
   const c = chapters[index];
-  document.documentElement.dataset.themeCurrent = c.dataset.theme;
+  applyTheme();
   $$('.rail li').forEach((li, k) => li.classList.toggle('is-active', k === index));
 
   const idx = $('.nav__idx');
@@ -268,9 +297,11 @@ function heroScroll() {
   const tl = gsap.timeline({
     scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true },
   });
-  tl.to('.giant__word', { scale: 1.35, yPercent: -8, opacity: 0, ease: 'none' }, 0)
-    .to('.signature', { opacity: 0, scale: 1.1, ease: 'none', duration: 0.5 }, 0)
-    .to('.hero', { opacity: 0, ease: 'none', duration: 0.45 }, 0.1);
+  // Explicit start values: the intro may still be hiding these when the scrub is created,
+  // and a lazily recorded start of opacity 0 would make them vanish on every return to the top
+  tl.fromTo('.giant__word', { scale: 1, yPercent: 0, opacity: 1 }, { scale: 1.35, yPercent: -8, opacity: 0, ease: 'none', immediateRender: false }, 0)
+    .fromTo('.signature', { opacity: 1, scale: 1 }, { opacity: 0, scale: 1.1, ease: 'none', duration: 0.5, immediateRender: false }, 0)
+    .fromTo('.hero', { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.45, immediateRender: false }, 0.1);
 
   // The giant word and signature come back for the finale (bookend)
   gsap.timeline({

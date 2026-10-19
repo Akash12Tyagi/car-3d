@@ -17,7 +17,9 @@ const damp = (a, b, lambda, dt) => THREE.MathUtils.lerp(a, b, 1 - Math.exp(-lamb
  *   dist distance from target, fov vertical field of view
  *   rot  car yaw in degrees, shift horizontal framing offset (-0.5..0.5 of viewport)
  */
-export const RIG_KEYS = ['az', 'el', 'dist', 'fov', 'tx', 'ty', 'tz', 'rot', 'shift', 'roll'];
+export const RIG_KEYS = ['az', 'el', 'dist', 'fov', 'tx', 'ty', 'tz', 'rot', 'shift', 'roll', 'parallax'];
+/** Values for rig keys a keyframe may leave out. `parallax` scales the pointer response (0 = none). */
+export const RIG_DEFAULTS = { shift: 0, roll: 0, parallax: 1 };
 
 export function webglAvailable() {
   try {
@@ -43,6 +45,7 @@ export class NullExperience {
   setRims() {}
   setPixelRatioCap() {}
   setStage() {}
+  setStudio() {}
 }
 
 export class Experience {
@@ -60,8 +63,14 @@ export class Experience {
     this.hotspots = [];
     this.stage = null; // an alternate scene (the Anatomy cinematic) that takes over the canvas while active
 
-    this.rig = { az: 0, el: 89.5, dist: 20, fov: 30, tx: 0, ty: 0, tz: 0, rot: 90, shift: 0, roll: 0 };
+    this.rig = { az: 0, el: 89.5, dist: 20, fov: 30, tx: 0, ty: 0, tz: 0, rot: 90, shift: 0, roll: 0, parallax: 1 };
     this.target = { ...this.rig };
+    // How quickly the camera chases its target (1/s). Infinity = follow exactly (timeline-driven shots).
+    this.rigLambda = 4.2;
+    // Pointer parallax only where there is a real hovering pointer; touch "pointers" would make it jump on tap
+    this.pointerEnabled = matchMedia('(hover: hover) and (pointer: fine)').matches;
+    // Studio light level and reflection rotation, animated by the hero intro
+    this.studio = { intensity: 1, rotation: 0 };
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -225,7 +234,9 @@ export class Experience {
     this.contactShadow = bakeContactShadow(this.renderer, car, { width: 3.6, depth: 6.2 });
     car.add(this.contactShadow);
     this.floorPool = createFloorPool();
+    this.floorPoolBase = this.floorPool.material.uniforms.uIntensity.value;
     car.add(this.floorPool);
+    this.setStudio(this.studio);
 
     // Exhaust emitters sit on the measured tailpipe tips from the registry
     const outflow = new THREE.Vector3(...vehicle.anchor('exhaustDirection'));
@@ -259,6 +270,15 @@ export class Experience {
 
   addHotspot(el, fx, fy, fz) {
     this.hotspots.push({ el, local: null, f: [fx, fy, fz] });
+  }
+
+  /** Studio light level (0..1) and rotation of the reflections (radians about Y). */
+  setStudio({ intensity = this.studio.intensity, rotation = this.studio.rotation } = {}) {
+    this.studio.intensity = intensity;
+    this.studio.rotation = rotation;
+    this.scene.environmentIntensity = intensity;
+    this.scene.environmentRotation.y = rotation;
+    if (this.floorPool) this.floorPool.material.uniforms.uIntensity.value = this.floorPoolBase * intensity;
   }
 
   setRig(values) {
@@ -312,14 +332,20 @@ export class Experience {
     }
 
     // Smoothly chase the scroll-driven rig target (gives the camera mass)
-    for (const k of RIG_KEYS) this.rig[k] = this.snap ? this.target[k] : damp(this.rig[k], this.target[k], 4.2, dt);
-    this.pointerDamped.x = damp(this.pointerDamped.x, this.pointer.x, 2.5, dt);
-    this.pointerDamped.y = damp(this.pointerDamped.y, this.pointer.y, 2.5, dt);
+    const lambda = this.snap ? Infinity : this.rigLambda;
+    for (const k of RIG_KEYS) {
+      const to = this.target[k] ?? RIG_DEFAULTS[k];
+      this.rig[k] = lambda === Infinity ? to : damp(this.rig[k] ?? to, to, lambda, dt);
+    }
+    const px = this.pointerEnabled ? this.pointer.x : 0;
+    const py = this.pointerEnabled ? this.pointer.y : 0;
+    this.pointerDamped.x = damp(this.pointerDamped.x, px, 2.5, dt);
+    this.pointerDamped.y = damp(this.pointerDamped.y, py, 2.5, dt);
     this.dragAzDamped = damp(this.dragAzDamped, this.dragAz, 6, dt);
 
     const r = this.rig;
-    const az = (r.az + this.dragAzDamped + this.pointerDamped.x * 4) * DEG;
-    const el = THREE.MathUtils.clamp(r.el + this.pointerDamped.y * 2.5, -2, 89.9) * DEG;
+    const az = (r.az + this.dragAzDamped + this.pointerDamped.x * 4 * r.parallax) * DEG;
+    const el = THREE.MathUtils.clamp(r.el + this.pointerDamped.y * 2.5 * r.parallax, -2, 89.9) * DEG;
     const target = new THREE.Vector3(r.tx, r.ty, r.tz);
     this.camera.position.set(
       target.x + r.dist * Math.sin(az) * Math.cos(el),

@@ -129,7 +129,10 @@ button {
   overflow: hidden;
 }
 .giant__word {
-  font-size: 41vw;
+  /* Edge to edge, but on short screens no taller than the band between the meta
+     row and the hero copy (the glyphs stand ~0.875 em tall), and never so small
+     that the car covers the word (≥ 62vh; the hero copy steps aside instead) */
+  font-size: min(41vw, max(62vh, calc((100vh - 380px) / 0.875)));
   line-height: 0.8;
   color: var(--rosso-deep);
   letter-spacing: -0.02em;
@@ -399,6 +402,42 @@ button {
 .rail:hover li a span {
   opacity: 1;
   transform: none;
+}
+
+/* Intro: skip control and the dark veil used to cut to the settled frame */
+.intro-skip {
+  position: fixed;
+  z-index: 60;
+  right: var(--gutter);
+  bottom: var(--gutter);
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(235, 231, 224, 0.28);
+  color: var(--paper);
+  background: rgba(10, 10, 11, 0.35);
+  backdrop-filter: blur(6px);
+  transition: border-color 0.3s, background 0.3s;
+}
+.intro-skip:hover,
+.intro-skip:focus-visible {
+  border-color: var(--paper);
+  background: rgba(10, 10, 11, 0.6);
+}
+.intro-skip:focus-visible {
+  outline: 2px solid var(--rosso);
+  outline-offset: 3px;
+}
+.intro-skip[hidden] {
+  display: none;
+}
+.intro-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  background: var(--ink);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Cursor */
@@ -1228,6 +1267,13 @@ main {
 /* ---------------------------------------------------------------- */
 /* Responsive                                                        */
 /* ---------------------------------------------------------------- */
+/* Short landscape screens: ROSSO needs the height, so the hero paragraph steps aside */
+@media (min-width: 861px) and (max-height: 840px) {
+  .hero__note {
+    display: none;
+  }
+}
+
 @media (max-width: 860px) {
   #anatomy {
     height: 520vh;
