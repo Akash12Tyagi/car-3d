@@ -60,6 +60,7 @@
 
     <button class="intro-skip mono" type="button" hidden>Skip intro <span aria-hidden="true">→</span></button>
     <div class="intro-veil" aria-hidden="true"></div>
+    <div class="intro-caption mono" aria-hidden="true"><span data-n>01</span><i></i><span data-word>Light</span></div>
 
     <nav class="rail" aria-label="Chapters">
       <div class="rail__track"><span class="rail__fill"></span></div>
@@ -162,19 +163,19 @@
           <div class="anat__beats">
             <article class="anat__beat" data-beat="whole">
               <h2 class="headline">Out of <em class="serif">the dark.</em></h2>
-              <p class="body">Before the numbers, the object. One line of light travelling down the flank of a car built from separate parts.</p>
+              <p class="body">Before the numbers, the object. One line of light travelling down the flank, and then we take it apart.</p>
             </article>
             <article class="anat__beat" data-beat="exploded">
               <h2 class="headline">Every part, <em class="serif">in its place.</em></h2>
-              <p class="body">Clamshells open on their hinges, doors swing from the A-pillar, wheels slide off their hubs and the cockpit rises in layers. Each part leaves along the path it was fitted on.</p>
+              <p class="body">The body lifts off the tub in one piece. Every wheel comes apart along its axle: cap, nuts, spokes, tyre, rim, brake disc. The cabin turns to glass, and behind it sits the V8.</p>
             </article>
             <article class="anat__beat" data-beat="power">
               <h2 class="headline">The power <em class="serif">unit.</em></h2>
-              <p class="body">Lifted straight out of the front bay, axles below. In this study model it is an envelope: the space a power unit occupies, not the engine itself.</p>
+              <p class="body">Mid-mounted, behind the cabin: the V8 and its seven-speed transaxle, lifted out of the bay, half-shafts in line with the rear hubs. The next chapter takes it apart.</p>
             </article>
             <article class="anat__beat" data-beat="reassembly">
               <h2 class="headline">Back <em class="serif">together.</em></h2>
-              <p class="body">Reverse order, same paths. Powertrain and cockpit first, then wheels, doors and body. Every part returns to the exact position it left.</p>
+              <p class="body">Reverse order, same paths. The engine drops into its bay, each wheel goes back on layer by layer, and the body settles onto the tub. Every part returns to the exact position it left.</p>
             </article>
             <article class="anat__beat" data-beat="hero">
               <h2 class="headline">Whole <em class="serif">again.</em></h2>
@@ -183,20 +184,84 @@
           </div>
 
           <div class="anat__foot">
-            <p class="anat__credit mono">Engineering study · stand-in asset “CarConcept” (Khronos, CC BY 4.0)<span class="anat__credit-more"> · production swaps in the licensed, component-separated model</span></p>
+            <p class="anat__credit mono">Engineering study · the same 458, split only where the model is split<span class="anat__credit-more"> · V8 and transaxle are an illustrative procedural model</span></p>
             <button class="anat__skip mono" data-hover>Skip sequence <span aria-hidden="true">↓</span></button>
           </div>
           <div class="anat__track" aria-hidden="true"><span></span></div>
 
           <div class="anat__loading mono" aria-live="polite">Preparing the engineering model <span>0%</span></div>
-          <img class="anat__fallback" src="./posters/anatomy-exploded.jpg" alt="Exploded view of the stand-in concept car: clamshells open, doors swung out, wheels and brakes separated" loading="lazy" />
+          <img class="anat__fallback" src="./posters/anatomy-exploded.jpg" alt="Exploded view of the Ferrari 458: the body lifted off the tub, each wheel separated into its layers, the V8 in its bay" loading="lazy" />
+        </div>
+      </section>
+
+      <section id="engine" class="chapter" data-chapter="Engine" data-theme="ink" aria-label="Engine: the V8 running, then taken apart">
+        <div class="sticky anatomy engine">
+          <div class="anat__head">
+            <div class="eyebrow mono"><span>05</span>Engine</div>
+            <ol class="anat__timeline mono" aria-label="Engine states">
+              <li data-beat="reveal"><button class="anat__state" type="button" data-state="reveal"><span class="anat__num">01</span><span class="anat__label">Reveal</span></button></li>
+              <li data-beat="running"><button class="anat__state" type="button" data-state="running"><span class="anat__num">02</span><span class="anat__label">Ignition</span></button></li>
+              <li data-beat="teardown"><button class="anat__state" type="button" data-state="teardown"><span class="anat__num">03</span><span class="anat__label">Teardown</span></button></li>
+              <li data-beat="rotating"><button class="anat__state" type="button" data-state="rotating"><span class="anat__num">04</span><span class="anat__label">Rotating assembly</span></button></li>
+              <li data-beat="assembled"><button class="anat__state" type="button" data-state="assembled"><span class="anat__num">05</span><span class="anat__label">Assembled</span></button></li>
+            </ol>
+          </div>
+
+          <div class="anat__beats">
+            <article class="anat__beat" data-beat="reveal">
+              <h2 class="headline">The heart <em class="serif">of it.</em></h2>
+              <p class="body">Eight cylinders at ninety degrees, 4,497 cc, no turbochargers. Twenty-two assemblies and more than a hundred moving parts, all modelled separately.</p>
+            </article>
+            <article class="anat__beat" data-beat="running">
+              <h2 class="headline">Ignition, <em class="serif">in glass.</em></h2>
+              <p class="body">The castings turn transparent. Pistons, rods, cams and all thirty-two valves move by the real geometry, and each cylinder fires at its own top dead centre.</p>
+            </article>
+            <article class="anat__beat" data-beat="teardown">
+              <h2 class="headline">Every part, <em class="serif">laid out.</em></h2>
+              <p class="body">Torn down in workshop order: intake, ignition, covers, cams, valves, heads, gearbox, sump, then the rotating assembly. Point at any part to name it.</p>
+            </article>
+            <article class="anat__beat" data-beat="rotating">
+              <h2 class="headline">A flat <em class="serif">plane.</em></h2>
+              <p class="body">The crank throws sit at 0° and 180°, all in one plane. The firing alternates from bank to bank, and that is where the scream comes from.</p>
+            </article>
+            <article class="anat__beat" data-beat="assembled">
+              <h2 class="headline">Back <em class="serif">at idle.</em></h2>
+              <p class="body">Every part returns along the path it left by, in reverse order. A thousand rpm, and the headers still warm.</p>
+            </article>
+          </div>
+
+          <div class="eng__hud mono" aria-hidden="true">
+            <div class="eng__rpm"><b class="display">0</b><span>rpm</span></div>
+            <dl class="eng__read">
+              <div><dt>Crank</dt><dd class="eng__crank">000°</dd></div>
+              <div><dt>Playback</dt><dd class="eng__slowmo">—</dd></div>
+            </dl>
+            <div class="eng__order"><span class="eng__order-label">Firing order</span><ol></ol></div>
+          </div>
+
+          <nav class="eng__parts" aria-label="Engine parts">
+            <p class="mono">Parts · <span class="eng__parts-count"></span></p>
+            <ol class="mono"></ol>
+          </nav>
+          <aside class="eng__card" aria-live="polite" hidden>
+            <p class="eng__card-n mono"><span data-field="n"></span><span data-field="qty"></span></p>
+            <h3 class="eng__card-title" data-field="title"></h3>
+            <p class="eng__card-text" data-field="text"></p>
+          </aside>
+
+          <div class="anat__foot">
+            <p class="anat__credit mono">Illustrative engineering model of a 90° flat-plane V8, 94 × 81 mm, built procedurally<span class="anat__credit-more"> · mechanism and timing are exact; proportions are representative, not factory CAD</span></p>
+            <button class="anat__skip mono" data-hover>Skip engine <span aria-hidden="true">↓</span></button>
+          </div>
+          <div class="anat__track" aria-hidden="true"><span></span></div>
+          <div class="anat__loading mono" aria-live="polite">Machining the engine <span>0%</span></div>
         </div>
       </section>
 
       <section id="performance" class="chapter" data-chapter="Performance" data-theme="ink">
         <div class="sticky performance">
           <div class="perf__copy">
-            <div class="eyebrow mono"><span>05</span>Performance</div>
+            <div class="eyebrow mono"><span>06</span>Performance</div>
             <h2 class="headline split">Numbers <em class="serif">that sing.</em></h2>
           </div>
           <div class="perf__tach">
@@ -237,7 +302,7 @@
       <section id="configure" class="chapter" data-chapter="Atelier" data-theme="ink">
         <div class="sticky configure">
           <div class="config__panel">
-            <div class="eyebrow mono"><span>07</span>Atelier</div>
+            <div class="eyebrow mono"><span>08</span>Atelier</div>
             <h2 class="headline split">Make it <em class="serif">yours.</em></h2>
             <div class="config__group">
               <div class="config__label mono">Paint — <span class="config__paint-name">Rosso Corsa</span></div>

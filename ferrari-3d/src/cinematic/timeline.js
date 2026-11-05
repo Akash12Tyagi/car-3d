@@ -52,6 +52,9 @@ export function powerAt(q) {
   return 0;
 }
 
+/** The tub and cabin turn to glass while the car is apart (the V8 is seen in its bay, then lifts out through it). */
+export const ghostAt = (q) => smooth(0.3, 0.4, q) * (1 - smooth(0.74, 0.8, q));
+
 /** Light levels as functions of q. */
 export function lightsAt(q) {
   return {
@@ -73,28 +76,27 @@ export function calloutsAt(q) {
 
 /*
  * Camera keys. Orbit around a target (az 0 = in front of the nose, az 90 = the
- * car's left flank; el above the ground). Distances are not authored: each key
- * names the bounds it must frame — the assembled car, the fully exploded set,
- * or the extracted powertrain — and the share of the screen they may fill, and
- * the distance is solved per aspect ratio (scene/views.js fitDistance). Keys
- * are joined by a monotone spline, so the camera never overshoots a key.
+ * car's left flank; el above the ground). Neither distances nor targets are
+ * authored: each key names the point set it must frame — the assembled car,
+ * the fully exploded set, or the lifted V8 — aims at its centre, and the
+ * distance is solved per aspect ratio (scene/views.js fitDistance). Keys are
+ * joined by a monotone spline, so the camera never overshoots a key.
  */
 export const CAMERA_KEYS = [
-  { t: 0.0, az: 22, el: 4, fov: 28, target: [0, 0.45, 0.25], frame: 'rest', fill: 0.8 },
-  { t: 0.1, az: 46, el: 7, fov: 28, target: [0, 0.5, 0.2], frame: 'rest', fill: 0.96 },
-  { t: 0.14, az: 50, el: 8, fov: 28, target: [0, 0.52, 0.2], frame: 'rest', fill: 0.96 },
-  { t: 0.27, az: 52, el: 17, fov: 28, target: [0, 0.75, 0.15], frame: 'exploded', fill: 0.9 },
-  { t: 0.4, az: 38, el: 24, fov: 28, target: [0, 0.9, 0.1], frame: 'exploded', fill: 0.88 },
-  { t: 0.45, az: 33, el: 25, fov: 28, target: [0, 0.9, 0.1], frame: 'exploded', fill: 0.88 },
-  { t: 0.5, az: 30, el: 25, fov: 28, target: [0, 0.92, 0.15], frame: 'exploded', fill: 0.88 },
-  // Power unit: low, from the side, so the lifted volume reads against the dark
-  // with the open front clamshell to one side and the windscreen to the other
-  { t: 0.62, az: 78, el: 14, fov: 24, target: 'power', frame: 'power', fill: 0.52 },
-  { t: 0.66, az: 72, el: 12, fov: 24, target: 'power', frame: 'power', fill: 0.52 },
-  { t: 0.7, az: 66, el: 13, fov: 24, target: 'power', frame: 'power', fill: 0.54 },
-  { t: 0.77, az: 30, el: 22, fov: 28, target: [0, 0.9, 0.15], frame: 'exploded', fill: 0.94 },
-  { t: 0.86, az: 22, el: 15, fov: 28, target: [0, 0.75, 0.15], frame: 'exploded', fill: 0.92 },
-  { t: 0.92, az: 38, el: 7, fov: 26, target: [0, 0.5, 0.2], frame: 'rest', fill: 0.96 },
-  { t: 0.95, az: 52, el: 5, fov: 26, target: [0, 0.5, 0.2], frame: 'rest', fill: 0.96 },
-  { t: 1.0, az: 74, el: 5, fov: 26, target: [0, 0.5, 0.2], frame: 'rest', fill: 0.92 },
+  { t: 0.0, az: 22, el: 4, fov: 28, target: 'rest', frame: 'rest', fill: 0.8 },
+  { t: 0.1, az: 46, el: 7, fov: 28, target: 'rest', frame: 'rest', fill: 0.96 },
+  { t: 0.14, az: 50, el: 8, fov: 28, target: 'rest', frame: 'rest', fill: 0.96 },
+  { t: 0.27, az: 54, el: 15, fov: 28, target: 'exploded', frame: 'exploded', fill: 0.9 },
+  { t: 0.4, az: 40, el: 20, fov: 28, target: 'exploded', frame: 'exploded', fill: 0.9 },
+  { t: 0.45, az: 35, el: 21, fov: 28, target: 'exploded', frame: 'exploded', fill: 0.9 },
+  { t: 0.5, az: 30, el: 21, fov: 28, target: 'exploded', frame: 'exploded', fill: 0.9 },
+  // Power unit: a low rear three-quarter, the V8 and transaxle lifted out of the bay
+  { t: 0.62, az: 128, el: 16, fov: 24, target: 'power', frame: 'power', fill: 0.62 },
+  { t: 0.66, az: 120, el: 15, fov: 24, target: 'power', frame: 'power', fill: 0.62 },
+  { t: 0.7, az: 112, el: 15, fov: 24, target: 'power', frame: 'power', fill: 0.62 },
+  { t: 0.77, az: 40, el: 19, fov: 28, target: 'exploded', frame: 'exploded', fill: 0.94 },
+  { t: 0.86, az: 24, el: 14, fov: 28, target: 'exploded', frame: 'exploded', fill: 0.92 },
+  { t: 0.92, az: 38, el: 7, fov: 26, target: 'rest', frame: 'rest', fill: 0.96 },
+  { t: 0.95, az: 52, el: 5, fov: 26, target: 'rest', frame: 'rest', fill: 0.96 },
+  { t: 1.0, az: 74, el: 5, fov: 26, target: 'rest', frame: 'rest', fill: 0.92 },
 ];

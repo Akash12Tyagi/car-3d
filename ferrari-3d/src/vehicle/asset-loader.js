@@ -37,6 +37,8 @@ function classify(url, err) {
  * One loader for every 3D asset on the page:
  *  - a single GLTFLoader + DRACOLoader (one decoder worker pool, not one per scene)
  *  - each URL is fetched and parsed once; later callers share the same promise
+ *  - a scene that needs its own copy of a model (the same car in two scenes)
+ *    re-parses the bytes already fetched: one download, independent graphs
  *  - progress is reported per URL to every listener, including late subscribers
  *  - failures reject with an AssetLoadError and are evicted, so a retry refetches
  */
@@ -62,9 +64,16 @@ export class AssetLoader {
     if (!entry) {
       entry = { progress: 0, listeners: new Set() };
       entry.promise = new Promise((resolve, reject) => {
-        this.gltf.load(
+        const file = new THREE.FileLoader(this.gltf.manager);
+        file.setResponseType('arraybuffer');
+        file.setRequestHeader(this.gltf.requestHeader);
+        file.setWithCredentials(this.gltf.withCredentials);
+        file.load(
           url,
-          resolve,
+          (buffer) => {
+            entry.buffer = buffer;
+            this.parse(buffer, url).then(resolve, (err) => reject(classify(url, err)));
+          },
           (e) => {
             if (!e.lengthComputable && !e.total) return;
             entry.progress = e.loaded / e.total;
@@ -90,6 +99,24 @@ export class AssetLoader {
       onProgress(entry.progress);
     }
     return entry.promise;
+  }
+
+  parse(buffer, url) {
+    return this.gltf.parseAsync(buffer, THREE.LoaderUtils.extractUrlBase(url));
+  }
+
+  /**
+   * An independent copy of a model (its own scene graph and materials), parsed
+   * from the bytes of the shared download: for showing the same car in a second
+   * scene without a second fetch.
+   */
+  loadModelCopy(path, { onProgress } = {}) {
+    const url = this.resolve(path);
+    return this.loadModel(path, { onProgress }).then(() =>
+      this.parse(this.entries.get(url).buffer, url).catch((err) => {
+        throw classify(url, err);
+      })
+    );
   }
 
   loadTexture(path) {

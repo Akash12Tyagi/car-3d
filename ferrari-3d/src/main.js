@@ -11,8 +11,11 @@ import { Anatomy } from './cinematic/anatomy.js';
 import { stateAt, calloutsAt } from './cinematic/timeline.js';
 import { layoutLabels } from './ui/labels.js';
 import { DesignExplorer } from './design/explorer.js';
-import { conceptCar } from './cinematic/manifest.js';
+import { anatomy458 } from './cinematic/manifest.js';
 import { viewRig, FRONT } from './scene/views.js';
+import { EngineStage } from './engine/stage.js';
+import { calloutsAt as engineCalloutsAt, stateAt as engineStateAt, ENGINE_CALLOUTS } from './engine/timeline.js';
+import { PART_INFO, PART_BY_ID } from './engine/v8.js';
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -48,6 +51,8 @@ function keyframes() {
     design: p ? view('profile', 0.92, 0.3, 0, { fov: 24 }) : view('profile', 0.64, 0.5),
     // Behind the Anatomy curtain: drift back into the dark, then hand over to Performance
     anatomy: { az: FRONT + 70, el: 4, dist: p ? 30 : 19, fov: p ? 24 : 20, tx: 0, ty: 0.55, tz: 0, rot: 0, shift: 0, roll: 0 },
+    // Behind the Engine curtain the same: the car stays in the dark until Performance
+    engine: { az: FRONT + 70, el: 4, dist: p ? 30 : 19, fov: p ? 24 : 20, tx: 0, ty: 0.55, tz: 0, rot: 0, shift: 0, roll: 0 },
     performance: p ? view('rear34', 0.95, 0.32, 0, { ty: 0.9 }) : view('rear34', 0.5, 0.48, -0.17),
     launch: { az: FRONT + 62, el: 3, dist: p ? 9.5 : 7.2, fov: 34, tx: 0, ty: 0.42, tz: 0, rot: 0, shift: 0, roll: -2.5 },
     configure: p ? view('atelier34', 0.98, 0.32, 0, { ty: -0.5 }) : view('atelier34', 0.52, 0.58, 0.19),
@@ -145,6 +150,8 @@ heroIntro.prepare(); // first frame of the intro, behind the loader
 window.__intro = heroIntro;
 
 const sound = new EngineSound();
+// Every exhaust bang is heard (when sound is on)
+exp.exhaust.onPop((s) => sound.pop(s));
 
 let lenis;
 let introDone = false;
@@ -215,6 +222,7 @@ function setupScroll() {
   textReveals();
   designChapter();
   anatomyChapter();
+  engineChapter();
   performanceChapter();
   launch();
   configurator();
@@ -247,7 +255,9 @@ function frame() {
   // The Design explorer may take the camera to a feature (one owner at a time: it blends from and back to this rig)
   if (introDone || i > 0) exp.setRig(design ? design.apply(rig) : rig);
 
-  anatomyFrame(y, vh);
+  // One curtain, two cinematics: each says how much cover it needs, the larger wins
+  const curtain = Math.max(anatomyFrame(y, vh), engineFrame(y, vh));
+  $('.curtain').style.opacity = curtain.toFixed(3);
 
   // Active chapter = the one covering the middle of the viewport
   let active = 0;
@@ -257,7 +267,8 @@ function frame() {
   // Wheels roll with scroll velocity outside of the launch sequence
   if (!launchState.active) {
     exp.wheelSpeed = clamp(lenis.velocity * 0.35, -14, 14);
-    sound.setRpm(1000 + Math.min(Math.abs(lenis.velocity) * 120, 3500) + perfState.rpm * 0.85 + anatomyState.rpm);
+    const engineRpm = engineState.stage?.active ? engineState.stage.rpm : 0;
+    sound.setRpm(engineRpm > 0 ? engineRpm : 1000 + Math.min(Math.abs(lenis.velocity) * 120, 3500) + perfState.rpm * 0.85 + anatomyState.rpm, engineRpm > 0 ? 0.04 : 0.08);
   }
 
   $('.rail__fill').style.transform = `scaleY(${clamp(y / (document.documentElement.scrollHeight - vh))})`;
@@ -414,11 +425,14 @@ function goToAnatomyState(id) {
 
 function anatomyChapter() {
   const section = $('#anatomy');
-  const loading = $('.anat__loading');
+  const loading = $('.anat__loading', section);
   if (!hasWebGL) return;
 
   const stage = new Anatomy(exp.renderer, {
-    manifest: conceptCar,
+    manifest: anatomy458,
+    // the same car: Anatomy follows the configurator's paint and wheels
+    paintSource: exp.bodyMaterial,
+    rimSource: exp.rimMaterial,
     haze: exp.haze,
     environment: exp.scene.environment,
     reducedMotion,
@@ -431,7 +445,7 @@ function anatomyChapter() {
 
   // Annotations are generated from the manifest, one set per held state
   const layer = $('.callouts');
-  anatomyState.callouts = Object.entries(conceptCar.callouts).flatMap(([set, list]) =>
+  anatomyState.callouts = Object.entries(anatomy458.callouts).flatMap(([set, list]) =>
     list.map((c, i) => {
       const el = document.createElement('div');
       el.className = c.key ? 'callout' : 'callout callout--minor';
@@ -478,13 +492,13 @@ function anatomyChapter() {
   });
 
   // Manual control: state buttons; Esc completes a state that is playing
-  $$('.anat__state').forEach((btn) => btn.addEventListener('click', () => goToAnatomyState(btn.dataset.state)));
+  $$('.anat__state', section).forEach((btn) => btn.addEventListener('click', () => goToAnatomyState(btn.dataset.state)));
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && stage.sequence.mode === 'manual') stage.sequence.finish();
   });
-  $('.anat__skip').addEventListener('click', () => {
+  $('.anat__skip', section).addEventListener('click', () => {
     stage.sequence.finish();
-    lenis.scrollTo('#performance', { duration: 1.6 });
+    lenis.scrollTo('#engine', { offset: 2, duration: 1.6 });
   });
 }
 
@@ -498,7 +512,7 @@ function anatomyFrame(y, vh) {
 
   if (!stage) {
     section.style.setProperty('--anat-p', p);
-    return;
+    return 0;
   }
   if (y > tops[idx - 1] - vh) anatomyState.request();
 
@@ -514,7 +528,6 @@ function anatomyFrame(y, vh) {
     smooth(end - 0.12 * vh, end, y) * (1 - smooth(end + 0.1 * vh, end + 0.6 * vh, y))
   );
   if (inside && !stage.ready) curtain = 1;
-  $('.curtain').style.opacity = curtain.toFixed(3);
   section.classList.toggle('is-waiting', inside && !stage.ready);
 
   // Entering (from either end, or after a jump) happens under the curtain:
@@ -531,8 +544,8 @@ function anatomyFrame(y, vh) {
   const state = stage.ready ? stage.sequence.state.id : stateAt(p).id;
   if (state !== anatomyState.state) {
     anatomyState.state = state;
-    $$('.anat__beat, .anat__timeline li').forEach((el) => el.classList.toggle('is-active', el.dataset.beat === state));
-    $$('.anat__state').forEach((b) => (b.dataset.state === state ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
+    $$('.anat__beat, .anat__timeline li', section).forEach((el) => el.classList.toggle('is-active', el.dataset.beat === state));
+    $$('.anat__state', section).forEach((b) => (b.dataset.state === state ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
   }
 
   // Annotations only while a state is held
@@ -543,18 +556,300 @@ function anatomyFrame(y, vh) {
     for (const c of anatomyState.callouts) c.el.classList.toggle('is-shown', c.set === set);
   }
   if (set) {
-    const items = anatomyState.callouts.filter((c) => c.set === set && getComputedStyle(c.el).display !== 'none' && stage.project(c.part, c.pos, c.at));
+    const items = anatomyState.callouts.filter((c) => c.set === set && getComputedStyle(c.el).display !== 'none' && stage.project(c.part, c.pos, c.at) && onScreen(c));
     // Labels stay below the state buttons and off the chapter copy
-    const head = $('.anat__head').getBoundingClientRect();
-    const copy = $('.anat__beat.is-active')?.getBoundingClientRect();
+    const head = $('.anat__head', section).getBoundingClientRect();
+    const copy = $('.anat__beat.is-active', section)?.getBoundingClientRect();
     layoutLabels(items, { minTop: head.bottom + 8, exclude: copy ? [copy] : [] });
   }
 
   // A gentle idle-to-midrange rev while the powertrain is on stage (only if sound is on)
   anatomyState.rpm = stage.active ? (stage.focus ?? 0) * 2600 : 0;
+  return curtain;
 }
 
-const perfState = { rpm: 0, lastRpm: 0 };
+/* ------------------------------------------------------------------ */
+/* Engine: the V8 running in glass, torn down, and put back            */
+/* Same model as Anatomy: a tall section with sticky content, one      */
+/* playhead (engine/timeline.js) driven by scroll or the state buttons.*/
+/* Parts can be inspected by pointing at them or from the parts list.  */
+/* ------------------------------------------------------------------ */
+const engineState = {
+  stage: null,
+  state: '',
+  requested: false,
+  calloutSet: null,
+  callouts: [],
+  pointer: null,
+  pointerDirty: false,
+  pinned: null,
+  listed: null,
+  shownPart: undefined,
+  hud: {},
+};
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** A callout whose marker has left the frame is hidden rather than left hanging where it last was. */
+function onScreen(c) {
+  const inside = !c.pos.behind && c.pos.x > 8 && c.pos.x < window.innerWidth - 8 && c.pos.y > 8 && c.pos.y < window.innerHeight - 8;
+  c.el.style.visibility = inside ? '' : 'hidden';
+  return inside;
+}
+
+function engineSpan() {
+  const section = $('#engine');
+  const top = tops[chapters.indexOf(section)];
+  return { top, span: section.offsetHeight - window.innerHeight };
+}
+
+function goToEngineState(id) {
+  const stage = engineState.stage;
+  if (!stage?.ready) return;
+  const seq = stage.sequence;
+  if (seq.mode === 'manual' && seq.target.id === id) return seq.finish();
+  const at = seq.goTo(id);
+  const { top, span } = engineSpan();
+  lenis.scrollTo(top + at * span, { immediate: true, force: true });
+}
+
+function engineChapter() {
+  const section = $('#engine');
+  const loading = $('.anat__loading', section);
+  if (!hasWebGL) return;
+
+  const stage = new EngineStage(exp.renderer, {
+    haze: exp.haze,
+    environment: exp.scene.environment,
+    reducedMotion,
+    mobile: coarse || window.innerWidth < 860,
+  });
+  stage.snap = exp.snap;
+  exp.setStage(stage);
+  engineState.stage = stage;
+  window.__engine = stage;
+
+  // Annotations, one set per held state (shared layer with Anatomy; only one stage is ever active)
+  const layer = $('.callouts');
+  engineState.callouts = Object.entries(ENGINE_CALLOUTS).flatMap(([set, list]) =>
+    list.map((c, i) => {
+      const el = document.createElement('div');
+      el.className = c.key ? 'callout' : 'callout callout--minor';
+      el.style.setProperty('--d', `${(i * 0.06).toFixed(2)}s`);
+      el.innerHTML = `<i></i><p><b>${c.title}</b>${c.text}</p>`;
+      layer.appendChild(el);
+      return { ...c, set, el, label: el.querySelector('p'), pos: { x: 0, y: 0 } };
+    })
+  );
+
+  // Parts list: every assembly, in teardown order
+  const list = $('.eng__parts ol', section);
+  $('.eng__parts-count', section).textContent = `${PART_INFO.length} assemblies`;
+  for (const [i, p] of PART_INFO.entries()) {
+    const li = document.createElement('li');
+    li.innerHTML = `<button type="button" data-part="${p.id}" aria-pressed="false"><span>${pad2(i + 1)}</span>${p.title}</button>`;
+    list.appendChild(li);
+  }
+  const setListed = (id) => {
+    engineState.listed = id;
+    stage.focusPart = engineState.listed ?? engineState.pinned;
+  };
+  $$('.eng__parts button', section).forEach((btn) => {
+    const id = btn.dataset.part;
+    btn.addEventListener('pointerenter', () => setListed(id));
+    btn.addEventListener('pointerleave', () => setListed(null));
+    btn.addEventListener('focus', () => setListed(id));
+    btn.addEventListener('blur', () => setListed(null));
+    btn.addEventListener('click', () => {
+      engineState.pinned = engineState.pinned === id ? null : id;
+      setListed(coarse ? null : id);
+    });
+  });
+
+  // Point at a part to name it (desktop); tap or click to pin it
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return;
+    engineState.pointer = { x: e.clientX, y: e.clientY };
+    engineState.pointerDirty = true;
+  });
+  window.addEventListener('click', (e) => {
+    if (!stage.inspectable || e.target.closest('button, a, nav, aside')) return;
+    const id = stage.pick(e.clientX, e.clientY);
+    engineState.pinned = id && id !== engineState.pinned ? id : null;
+    stage.focusPart = engineState.listed ?? engineState.pinned;
+  });
+
+  // Firing-order chips for the HUD
+  const order = $('.eng__order ol', section);
+  for (const n of [1, 5, 3, 7, 4, 8, 2, 6]) {
+    const li = document.createElement('li');
+    li.textContent = n;
+    li.dataset.cyl = n;
+    order.appendChild(li);
+  }
+  engineState.hud = {
+    rpm: $('.eng__rpm b', section),
+    crank: $('.eng__crank', section),
+    slowmo: $('.eng__slowmo', section),
+    chips: new Map($$('.eng__order li', section).map((li) => [Number(li.dataset.cyl), li])),
+    card: $('.eng__card', section),
+    last: {},
+  };
+
+  // Built procedurally in idle time (no download); requested early so it is ready by Anatomy's end
+  const request = () => {
+    if (engineState.requested) return;
+    engineState.requested = true;
+    section.classList.remove('is-failed');
+    stage
+      .load()
+      .then(() => section.classList.add('is-ready'))
+      .catch((err) => {
+        console.error('[engine] build failed —', err);
+        section.classList.add('is-failed');
+        setTimeout(() => (engineState.requested = false), 15000);
+      });
+  };
+  engineState.request = request;
+  (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => setTimeout(request, 3500));
+
+  const pct = loading.querySelector('span');
+  const tick = () => {
+    pct.textContent = `${Math.round(stage.loadProgress * 100)}%`;
+    if (stage.ready) gsap.ticker.remove(tick);
+  };
+  gsap.ticker.add(tick);
+
+  window.addEventListener('pagehide', (e) => {
+    if (!e.persisted) stage.dispose();
+  });
+
+  $$('.anat__state', section).forEach((btn) => btn.addEventListener('click', () => goToEngineState(btn.dataset.state)));
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (stage.sequence.mode === 'manual') stage.sequence.finish();
+    else if (engineState.pinned) {
+      engineState.pinned = null;
+      stage.focusPart = engineState.listed;
+    }
+  });
+  $('.anat__skip', section).addEventListener('click', () => {
+    stage.sequence.finish();
+    lenis.scrollTo('#performance', { duration: 1.6 });
+  });
+}
+
+function engineFrame(y, vh) {
+  const stage = engineState.stage;
+  const section = $('#engine');
+  const idx = chapters.indexOf(section);
+  const { top, span } = engineSpan();
+  const end = top + span;
+  const p = clamp((y - top) / span);
+
+  if (!stage) {
+    section.style.setProperty('--anat-p', p);
+    return 0;
+  }
+  if (y > tops[idx - 2] - vh) engineState.request();
+
+  const smooth = (a, b, v) => {
+    const t = clamp((v - a) / (b - a));
+    return t * t * (3 - 2 * t);
+  };
+  // Straight on from Anatomy's curtain (both stages are dark: the cut stays black), then out to Performance
+  const inside = y >= top - 0.08 * vh && y <= end + 0.06 * vh;
+  let curtain = Math.max(
+    smooth(top - 0.95 * vh, top - 0.85 * vh, y) * (1 - smooth(top + 0.02 * vh, top + 0.25 * vh, y)),
+    smooth(end - 0.12 * vh, end, y) * (1 - smooth(end + 0.1 * vh, end + 0.6 * vh, y))
+  );
+  if (inside && !stage.ready) curtain = 1;
+  section.classList.toggle('is-waiting', inside && !stage.ready);
+
+  const wasActive = stage.active;
+  stage.active = inside && stage.ready;
+  if (stage.active && !wasActive) stage.sequence.jump(p);
+  stage.setProgress(p);
+
+  const q = stage.ready ? stage.sequence.q : p;
+  section.style.setProperty('--anat-p', q.toFixed(4));
+
+  const state = stage.ready ? stage.sequence.state.id : engineStateAt(p).id;
+  if (state !== engineState.state) {
+    engineState.state = state;
+    section.dataset.state = state;
+    $$('.anat__beat, .anat__timeline li', section).forEach((el) => el.classList.toggle('is-active', el.dataset.beat === state));
+    $$('.anat__state', section).forEach((b) => (b.dataset.state === state ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
+  }
+  if (!stage.active) {
+    if (engineState.calloutSet) {
+      engineState.calloutSet = null;
+      $('.callouts').classList.remove('is-on');
+      for (const c of engineState.callouts) c.el.classList.remove('is-shown');
+    }
+    return curtain;
+  }
+
+  // Inspection: the part under the pointer (re-picked only when the pointer moves)
+  if (!stage.inspectable) stage.hover = null;
+  else if (engineState.pointerDirty && engineState.pointer) {
+    stage.hover = stage.pick(engineState.pointer.x, engineState.pointer.y);
+    engineState.pointerDirty = false;
+  }
+  if (!stage.inspectable && engineState.pinned && stage.sequence.mode === 'scroll') {
+    engineState.pinned = null;
+    stage.focusPart = engineState.listed;
+  }
+  section.classList.toggle('is-inspecting', !!stage.hover);
+  const shown = stage.focusPart ?? stage.hover ?? null;
+  const H = engineState.hud;
+  if (shown !== engineState.shownPart) {
+    engineState.shownPart = shown;
+    const info = shown && PART_BY_ID.get(shown);
+    H.card.hidden = !info;
+    if (info) {
+      H.card.querySelector('[data-field="n"]').textContent = `${pad2(info.index + 1)} / ${PART_INFO.length}`;
+      H.card.querySelector('[data-field="qty"]').textContent = info.qty;
+      H.card.querySelector('[data-field="title"]').textContent = info.title;
+      H.card.querySelector('[data-field="text"]').textContent = info.text;
+    }
+    $$('.eng__parts button', section).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.part === shown)));
+  }
+
+  // Dyno readout (written only when a value changes)
+  const L = H.last;
+  const rpm = Math.round(stage.rpm / 10) * 10;
+  if (rpm !== L.rpm) H.rpm.textContent = (L.rpm = rpm).toLocaleString('en-US');
+  const crank = String(Math.floor(stage.crankDeg ?? 0)).padStart(3, '0');
+  if (crank !== L.crank) H.crank.textContent = `${(L.crank = crank)}°`;
+  const slowmo = stage.slowmo ? `1/${Math.round(stage.slowmo)} speed` : stage.byHand ? 'By hand' : '—';
+  if (slowmo !== L.slowmo) H.slowmo.textContent = L.slowmo = slowmo;
+  if (stage.firingCyl !== L.firing) {
+    H.chips.get(L.firing)?.classList.remove('is-firing');
+    H.chips.get(stage.firingCyl)?.classList.add('is-firing');
+    L.firing = stage.firingCyl;
+  }
+
+  // Annotations only while a state is held, and not while a part is being inspected
+  const set = shown ? null : engineCalloutsAt(q);
+  if (set !== engineState.calloutSet) {
+    engineState.calloutSet = set;
+    $('.callouts').classList.toggle('is-on', !!set);
+    for (const c of engineState.callouts) c.el.classList.toggle('is-shown', c.set === set);
+  }
+  if (set) {
+    const items = engineState.callouts.filter((c) => c.set === set && getComputedStyle(c.el).display !== 'none' && stage.project(c.part, c.pos, c.at) && onScreen(c));
+    const head = $('.anat__head', section).getBoundingClientRect();
+    // Labels keep off the copy, the readout and the parts list, whichever are showing
+    const exclude = ['.anat__beat.is-active', '.eng__hud', '.eng__parts']
+      .map((sel) => $(sel, section))
+      .filter((el) => el && getComputedStyle(el).display !== 'none' && parseFloat(getComputedStyle(el).opacity) > 0.05)
+      .map((el) => el.getBoundingClientRect());
+    layoutLabels(items, { minTop: head.bottom + 8, exclude });
+  }
+  return curtain;
+}
+
+const perfState = { rpm: 0, lastRpm: 0, limiter: false, nextBang: 0 };
 function performanceChapter() {
   const C = 2 * Math.PI * 88;
   const ARC = C * 0.75;
@@ -586,21 +881,38 @@ function performanceChapter() {
       // Rev up, hold at the limiter, then settle
       const rpm = p < 0.7 ? easeInOut(p / 0.7) * 9000 : 9000 - (Math.sin(p * 90) * 0.5 + 0.5) * 250;
       perfState.rpm = self.isActive ? rpm : 0;
-      // Exhaust follows the revs; each touch of the limiter fires a pulse from the tailpipes
-      exp.exhaust.throttle = self.isActive ? (rpm / 9000) * 0.75 : 0;
-      if (self.isActive && rpm > 8820 && perfState.lastRpm <= 8820) exp.exhaust.pulse(0.8);
+      // Exhaust follows the revs; each touch of the limiter fires a bang from the tailpipes
+      exp.exhaust.throttle = self.isActive ? (rpm / 9000) * 0.95 : 0;
+      if (self.isActive && rpm > 8820 && perfState.lastRpm <= 8820) exp.exhaust.pulse(1.15);
+      // Backing off from high revs: the overrun crackles
+      if (self.isActive && rpm < 7600 && perfState.lastRpm >= 7600 && self.direction < 0) exp.exhaust.crackle(1.3, 0.85);
+      // Held at the limiter, it keeps bouncing off it, even when the visitor stops scrolling
+      perfState.limiter = self.isActive && p >= 0.7;
       perfState.lastRpm = rpm;
       fill.style.strokeDasharray = `${(rpm / 10000) * ARC} ${C}`;
       rpmEl.textContent = Math.round(rpm / 10) * 10;
     },
     onLeave: () => {
+      // Leaving at the limiter: lift off, and it crackles on the overrun
+      if (perfState.lastRpm > 7000) exp.exhaust.crackle(1.5, 0.9);
       perfState.rpm = 0;
+      perfState.limiter = false;
       exp.exhaust.throttle = 0;
     },
     onLeaveBack: () => {
+      if (perfState.lastRpm > 7000) exp.exhaust.crackle(1.0, 0.7);
       perfState.rpm = 0;
+      perfState.limiter = false;
       exp.exhaust.throttle = 0;
     },
+  });
+  // The limiter, as a clock: a bang every ~110–190 ms while the revs are held there
+  gsap.ticker.add((time, deltaMs) => {
+    if (!perfState.limiter || reducedMotion) return;
+    perfState.nextBang -= deltaMs / 1000;
+    if (perfState.nextBang > 0) return;
+    exp.exhaust.pulse(0.6 + Math.random() * 0.5);
+    perfState.nextBang = 0.11 + Math.random() * 0.08;
   });
 
   $$('[data-count]').forEach((el, k) => {
@@ -626,7 +938,7 @@ function performanceChapter() {
   });
 }
 
-const launchState = { active: false, gear: 0 };
+const launchState = { active: false, gear: 0, lastP: 0 };
 function launch() {
   const kmhEl = $('.launch__kmh');
   const gearEl = $('.launch__gear');
@@ -668,8 +980,14 @@ function launch() {
         sound.setRpm(p > 0.002 ? rpm : 1000, 0.05);
         // Exhaust load tracks the revs; every upshift cuts and re-lights with a pulse
         exp.exhaust.throttle = p > 0.002 ? 0.3 + 0.7 * ((rpm - 3800) / 5200) : 0.1;
-        if (launchState.gear && gear !== launchState.gear) exp.exhaust.pulse(1);
+        // The launch itself, then a bang and a short crackle on every upshift
+        if (p > 0.002 && launchState.lastP <= 0.002) exp.exhaust.pulse(1.4);
+        if (launchState.gear && gear !== launchState.gear) {
+          exp.exhaust.pulse(1.25);
+          exp.exhaust.crackle(0.22, 0.55);
+        }
       }
+      launchState.lastP = p;
       launchState.gear = gear;
       rows[0].style.transform = `translateX(${-p * 55}%)`;
       rows[1].style.transform = `translateX(${-50 + p * 45}%)`;

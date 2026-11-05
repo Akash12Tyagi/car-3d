@@ -13,7 +13,6 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { indexTree, resolveRegistry, unclaimedMeshNodes, describeSelector } from '../src/vehicle/selectors.js';
 import { ferrari458 } from '../src/vehicle/registry/ferrari-458.js';
-import { conceptCar } from '../src/vehicle/registry/concept-car.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const verbose = process.argv.includes('--verbose');
@@ -44,7 +43,7 @@ function treeFromJson(json) {
 const subtreeVerts = (n) => n.vertices + n.children.reduce((a, c) => a + subtreeVerts(c), 0);
 
 let failures = 0;
-for (const registry of [ferrari458, conceptCar]) {
+for (const registry of [ferrari458]) {
   const file = join(root, 'public', registry.url);
   const json = readGlbJson(file);
   const index = indexTree(treeFromJson(json));

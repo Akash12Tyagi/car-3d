@@ -1,8 +1,9 @@
 import gsap from 'gsap';
-import { STATES, stateAt } from './timeline.js';
+import { STATES as ANATOMY_STATES } from './timeline.js';
 
 /**
- * The single owner of the Anatomy playhead q (see timeline.js).
+ * The single owner of a cinematic's playhead q (Anatomy: see timeline.js; the
+ * Engine chapter passes its own `states`, see engine/timeline.js).
  *
  * Two inputs, never active at the same time:
  *   scroll  q follows the section's scroll progress with a little damping
@@ -17,7 +18,8 @@ import { STATES, stateAt } from './timeline.js';
  * often the sequence runs, in either direction.
  */
 export class SequenceController {
-  constructor({ lambda = 7, reducedMotion = false } = {}) {
+  constructor({ lambda = 7, reducedMotion = false, states = ANATOMY_STATES } = {}) {
+    this.states = states;
     this.lambda = lambda;
     this.reducedMotion = reducedMotion;
     this.p = 0; // scroll progress (input)
@@ -40,8 +42,8 @@ export class SequenceController {
    * caller can move the page there.
    */
   goTo(id) {
-    const state = STATES.find((s) => s.id === id);
-    if (!state) throw new Error(`[anatomy] unknown state "${id}"`);
+    const state = this.states.find((s) => s.id === id);
+    if (!state) throw new Error(`[sequence] unknown state "${id}"`);
     this.tween?.kill();
     this.mode = 'manual';
     this.target = state;
@@ -107,7 +109,7 @@ export class SequenceController {
 
   /** The state the playhead is in, or the one a button is playing to. */
   get state() {
-    return this.target ?? stateAt(this.q);
+    return this.target ?? this.states.find((s) => this.q >= s.from && this.q < s.to) ?? this.states[this.states.length - 1];
   }
 
   onChange(fn) {

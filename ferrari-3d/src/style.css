@@ -436,6 +436,34 @@ button {
 .intro-skip[hidden] {
   display: none;
 }
+/* Film captions during the opening shot: index, rule, word */
+.intro-caption {
+  position: fixed;
+  z-index: 60;
+  left: var(--gutter);
+  bottom: calc(var(--gutter) + 8px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--paper);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.8);
+}
+.intro-caption [data-n] {
+  color: var(--rosso);
+}
+.intro-caption i {
+  width: 36px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.5;
+}
+.intro-caption [data-word] {
+  font-size: 12px;
+  letter-spacing: 0.32em;
+}
 .intro-veil {
   position: fixed;
   inset: 0;
@@ -1137,6 +1165,199 @@ main {
   text-align: right;
 }
 
+/* Engine (procedural V8: running, teardown, rotating assembly) */
+#engine {
+  height: 720vh;
+}
+#engine.is-waiting .anat__loading {
+  opacity: 1;
+}
+#engine.is-failed .anat__loading {
+  opacity: 0;
+}
+/* Dyno readout, while the engine runs */
+.eng__hud {
+  position: absolute;
+  right: calc(var(--gutter) + 40px);
+  bottom: calc(var(--gutter) + 92px);
+  text-align: right;
+  color: var(--fg);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s var(--ease-out), transform 0.9s var(--ease-out);
+  pointer-events: none;
+}
+#engine[data-state='running'] .eng__hud {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.2s;
+}
+.eng__rpm {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.eng__rpm b {
+  font-size: clamp(56px, 6.4vw, 112px);
+  min-width: 3.6ch;
+  text-align: right;
+}
+.eng__rpm span {
+  color: var(--muted);
+}
+.eng__read {
+  display: flex;
+  justify-content: flex-end;
+  gap: 24px;
+  margin: 16px 0 0;
+}
+.eng__read div {
+  display: flex;
+  gap: 10px;
+}
+.eng__read dt {
+  color: var(--muted);
+}
+.eng__read dd {
+  margin: 0;
+  min-width: 4ch;
+}
+.eng__order {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 14px;
+  color: var(--muted);
+}
+.eng__order ol {
+  list-style: none;
+  display: flex;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+}
+.eng__order li {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--fg);
+  letter-spacing: 0;
+  transition: background 0.35s, border-color 0.35s, box-shadow 0.35s;
+}
+.eng__order li.is-firing {
+  background: var(--rosso);
+  border-color: var(--rosso);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(208, 18, 28, 0.75);
+  transition: none;
+}
+/* Parts list, while the engine is apart */
+.eng__parts {
+  position: absolute;
+  left: var(--gutter);
+  top: calc(var(--gutter) + 136px);
+  width: min(380px, 34vw);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s, visibility 0s 0.4s;
+}
+#engine[data-state='teardown'] .eng__parts,
+#engine[data-state='rotating'] .eng__parts {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.7s var(--ease-out) 0.2s;
+}
+.eng__parts > p {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+.eng__parts ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 18px;
+}
+.eng__parts button {
+  pointer-events: auto;
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-align: left;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.25s;
+}
+.eng__parts button span {
+  color: var(--rosso);
+  opacity: 0.75;
+}
+.eng__parts button:hover,
+.eng__parts button[aria-pressed='true'] {
+  color: var(--fg);
+}
+.eng__parts button:focus-visible {
+  outline: 1px solid var(--rosso);
+  outline-offset: 3px;
+}
+/* The inspected part */
+.eng__card {
+  position: absolute;
+  right: calc(var(--gutter) + 40px);
+  bottom: calc(var(--gutter) + 92px);
+  width: 310px;
+  padding: 18px 20px 20px;
+  background: rgba(10, 10, 11, 0.74);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #fff;
+  pointer-events: none;
+  animation: eng-card-in 0.45s var(--ease-out);
+}
+.eng__card[hidden] {
+  display: none;
+}
+.eng__card-n {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.eng__card-n span:first-child {
+  color: var(--rosso);
+}
+.eng__card-title {
+  margin: 0 0 10px;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+.eng__card-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+@keyframes eng-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
 /* No WebGL: the page stays a readable, static site */
 .no-webgl .webgl,
 .no-webgl .loader,
@@ -1146,8 +1367,14 @@ main {
 .no-webgl .anat__timeline {
   display: none;
 }
-.no-webgl #anatomy {
+.no-webgl #anatomy,
+.no-webgl #engine {
   height: 160vh;
+}
+.no-webgl .eng__hud,
+.no-webgl .eng__parts,
+.no-webgl .eng__card {
+  display: none;
 }
 #anatomy.is-failed .anat__fallback,
 .no-webgl .anat__fallback {
@@ -1160,7 +1387,8 @@ main {
   z-index: -1;
   opacity: 0.85;
 }
-.no-webgl .anat__beat[data-beat='exploded'] {
+.no-webgl .anat__beat[data-beat='exploded'],
+.no-webgl .anat__beat[data-beat='teardown'] {
   opacity: 1;
   transform: none;
 }
@@ -1450,7 +1678,8 @@ main {
    the exploded view keeps only its key annotations, as on phones */
 @media (min-width: 861px) and (max-height: 840px) {
   .hero__note,
-  .callout--minor {
+  .callout--minor,
+  .eng__parts {
     display: none;
   }
 }
@@ -1512,8 +1741,41 @@ main {
     right: var(--gutter);
     bottom: calc(var(--gutter) + 70px);
   }
-  .callout--minor {
+  .callout--minor,
+  .eng__parts {
     display: none;
+  }
+  #engine {
+    height: 560vh;
+  }
+  .eng__hud {
+    top: calc(var(--gutter) + 64px + 84px);
+    bottom: auto;
+    right: var(--gutter);
+  }
+  .eng__rpm b {
+    font-size: 44px;
+  }
+  .eng__read {
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .eng__order-label {
+    display: none;
+  }
+  .eng__order li {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+  .eng__card {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    padding: 18px var(--gutter) calc(18px + env(safe-area-inset-bottom));
+    border-width: 1px 0 0;
+    border-radius: 14px 14px 0 0;
   }
   .callout p {
     width: auto;
