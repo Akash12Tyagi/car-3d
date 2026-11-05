@@ -81,7 +81,7 @@ a difference-blend custom cursor, a chapter rail and responsive keyframes (portr
 ### P1 — "wow" upgrades
 5. **Macro chapter.** Depth-of-field close-ups of the headlamp, wheel and badge, matching the BMW detail crops. Animate focus distance with scroll.
 6. **Headlight and tail-light ignition.** Light up the emissive LED meshes in sequence when the engine starts (pairs with the sound toggle).
-7. **Exploded view: built** as the Anatomy chapter, on a labelled CC BY stand-in asset with real hinges. Next step: source the licensed, component-separated 458 and write its manifest (see README). That would also let the exhaust beat join the cinematic.
+7. **Exploded view: built** as the Anatomy chapter, on the same 458 as the rest of the site: the one-piece body lifts off, the wheels come apart in layers, and the procedural V8 lifts out. Next step: a licensed, panel-separated 458 (see docs/ASSETS.md) would let the doors and engine cover open on real hinges.
 8. **Environment switch in the Atelier.** Studio, Maranello street at dusk, track. Swap the HDRI and floor with a dissolve.
 9. **Scroll-velocity distortion.** A post-pass RGB split and stretch driven by Lenis velocity.
 10. **Page transitions** to a configurator summary or a booking page (Barba.js or view-transitions API).

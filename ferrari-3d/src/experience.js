@@ -35,7 +35,7 @@ export class NullExperience {
   constructor() {
     this.rig = {};
     this.target = {};
-    this.exhaust = { throttle: 0, pulse() {} };
+    this.exhaust = { throttle: 0, pulse() {}, crackle() {}, onPop: () => () => {} };
     this.renderer = null;
     this.haze = null;
   }
@@ -46,6 +46,8 @@ export class NullExperience {
   setPixelRatioCap() {}
   setStage() {}
   setStudio() {}
+  setLamps() {}
+  setRake() {}
 }
 
 export class Experience {
@@ -60,8 +62,9 @@ export class Experience {
     this.wheelSpeedDamped = 0;
     this.streaks = 0; // 0..1 speed-line intensity
     this.shake = 0;
+    this.kick = 0; // a short, sharp camera jolt on every exhaust bang (decays by itself)
     this.frameListeners = []; // called after every rendered frame of the main scene, with the camera final
-    this.stage = null; // an alternate scene (the Anatomy cinematic) that takes over the canvas while active
+    this.stages = []; // alternate scenes (the Anatomy and Engine cinematics); an active one takes over the canvas
 
     this.rig = { az: 0, el: 89.5, dist: 20, fov: 30, tx: 0, ty: 0, tz: 0, rot: 90, shift: 0, roll: 0, parallax: 1 };
     this.target = { ...this.rig };
@@ -95,9 +98,11 @@ export class Experience {
 
     this.buildStudioEnvironment();
     this.buildMaterials();
+    this.buildRake();
     this.buildStreaks();
     this.exhaust = new Exhaust({ reducedMotion });
     this.scene.add(this.exhaust.points);
+    this.exhaust.onPop((s) => (this.kick = Math.min(1.5, Math.max(this.kick, s))));
 
     this.callbacks = { onProgress, onLoad, onError };
     this.load();
@@ -168,6 +173,40 @@ export class Experience {
     this.glassMaterial = this.lookdev.glass;
   }
 
+  /**
+   * The intro's raking light: one spot that travels down the flank, nose to
+   * tail, so the shoulder line draws itself in the dark. It lives in car space
+   * (under carRoot, so it follows the car's yaw) and stays in the scene at zero
+   * intensity the rest of the time: toggling its visibility would change the
+   * light count and recompile every material mid-page.
+   */
+  buildRake() {
+    this.rake = new THREE.SpotLight(0xfff1e4, 0, 7, 0.32, 0.75, 1.6);
+    this.rake.position.set(-2.6, 1.05, -3);
+    this.rake.target.position.set(-0.6, 0.55, -2.6);
+    this.carRoot.add(this.rake, this.rake.target);
+  }
+
+  /** Raking light: intensity, and how far along the car it is (car-space z, nose −2.3 → tail +2.3). */
+  setRake({ intensity = this.rake.intensity, z = this.rake.position.z } = {}) {
+    this.rake.intensity = intensity;
+    this.rake.position.z = z;
+    this.rake.target.position.z = z + 0.5;
+  }
+
+  /**
+   * The car's own lamps (emissive intensity): the LED signature (DRL), the
+   * projector-lens array beside it, and the tail-lamps. Defaults 0.55 / 0 / 0.12.
+   */
+  setLamps({ drl, lens, tail } = {}) {
+    if (drl !== undefined) this.lookdev.drl.emissiveIntensity = drl;
+    if (tail !== undefined) this.lookdev.tailUnits.emissiveIntensity = tail;
+    if (lens !== undefined) {
+      this.lookdev.headLenses.emissive.set('#eef3ff');
+      this.lookdev.headLenses.emissiveIntensity = lens;
+    }
+  }
+
   buildStreaks() {
     const count = 140;
     const geo = new THREE.BoxGeometry(0.012, 0.012, 1);
@@ -228,6 +267,11 @@ export class Experience {
     vehicle.setSlotMaterial('paint', this.bodyMaterial);
     for (const [slot, material] of Object.entries(this.lookdev)) vehicle.setSlotMaterial(slot, material);
     this.wheels = ['wheel.fl', 'wheel.fr', 'wheel.rl', 'wheel.rr'].map((id) => vehicle.node(id));
+    // The LED signature sits behind the smoked headlamp glass, which would cap even a blazing LED at
+    // grey. Draw the emitters after the glass (it writes no depth, so they still sit behind it) so they
+    // shine through it, as an LED does.
+    this.lookdev.drl.transparent = true;
+    for (const m of vehicle.meshes('lights.head.leds')) m.renderOrder = 3;
 
     // Ground contact: a shadow baked once from the real geometry, plus a soft
     // floor light pool. Both are parented to the car so they follow its yaw.
@@ -304,11 +348,11 @@ export class Experience {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.haze.setSize(w, h, this.renderer.getPixelRatio());
-    this.stage?.resize(w, h);
+    for (const stage of this.stages) stage.resize(w, h);
   }
 
   setStage(stage) {
-    this.stage = stage;
+    if (!this.stages.includes(stage)) this.stages.push(stage);
     stage.resize(this.width, this.height);
   }
 
@@ -316,10 +360,11 @@ export class Experience {
     const dt = Math.min(this.clock.getDelta(), 1 / 20);
     const t = this.clock.elapsedTime;
 
-    // While the cinematic is on screen it owns the canvas; the main scene sleeps
-    if (this.stage?.active) {
-      this.stage.update(dt, t);
-      this.stage.render();
+    // While a cinematic is on screen it owns the canvas; the main scene sleeps
+    const stage = this.stages.find((s) => s.active);
+    if (stage) {
+      stage.update(dt, t);
+      stage.render(t);
       return;
     }
 
@@ -348,6 +393,13 @@ export class Experience {
       const s = this.shake * 0.025;
       this.camera.position.x += Math.sin(t * 47) * s;
       this.camera.position.y += Math.sin(t * 61 + 1.3) * s;
+    }
+    // Each bang jolts the camera, scaled by distance so it reads the same in close-ups and wide shots
+    if (this.kick > 0.002) {
+      const k = this.kick * 0.006 * Math.min(r.dist, 8);
+      this.camera.position.x += (Math.random() - 0.5) * k;
+      this.camera.position.y += (Math.random() - 0.5) * k * 0.7;
+      this.kick *= Math.exp(-10 * dt);
     }
     this.camera.up.set(Math.sin(r.roll * DEG), Math.cos(r.roll * DEG), 0);
     this.camera.lookAt(target);

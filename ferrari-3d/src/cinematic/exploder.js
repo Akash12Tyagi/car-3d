@@ -24,7 +24,11 @@ const clamp01 = (v) => Math.min(1, Math.max(0, v));
  *    rest values back exactly (bit-for-bit, not approximately).
  */
 export class Exploder {
-  constructor(root, manifest, vehicle) {
+  /**
+   * @param {object} [extras]  objects that are not registry components (e.g. the
+   *   procedural V8), addressed in the manifest as '@name'
+   */
+  constructor(root, manifest, vehicle, extras = {}) {
     this.root = root;
     this.parts = [];
     this.byId = new Map();
@@ -33,7 +37,9 @@ export class Exploder {
     root.updateMatrixWorld(true);
 
     for (const def of manifest.parts) {
-      const nodes = def.components.flatMap((id) => (vehicle.has(id) ? vehicle.nodes(id) : (this.missing.push(id), [])));
+      const nodes = def.components.flatMap((id) =>
+        id.startsWith('@') ? (extras[id] ? [extras[id]] : (this.missing.push(id), [])) : vehicle.has(id) ? vehicle.nodes(id) : (this.missing.push(id), [])
+      );
       if (!nodes.length) continue;
 
       const entries = nodes.map((node) => {

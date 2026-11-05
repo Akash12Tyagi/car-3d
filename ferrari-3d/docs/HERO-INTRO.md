@@ -1,96 +1,71 @@
-# Hero intro: the opening shot
+# Hero intro: the opening film
 
-Code: `src/hero-intro.js` (timeline, camera path, skip, modes); hooks in
-`src/experience.js` (`rigLambda`, `parallax`, `setStudio`) and `src/main.js`
-(`setTheme`, scroll hand-over).
+Code: `src/hero-intro.js` (timeline, camera path, captions, skip, modes); hooks
+in `src/experience.js` (`setLamps`, `setRake`, `setStudio`, `rigLambda`,
+`parallax`) and `src/main.js` (`setTheme`, scroll hand-over); the exhaust in
+`src/fx/exhaust.js` (see `docs/EXHAUST.md`).
 
-Frames seeked from the running timeline (960×600 and 390×844, software renderer):
+| | |
+|---|---|
+| ![01 Light](intro-01-light.jpg) | ![02 Line](intro-02-line.jpg) |
+| ![03 Fire](intro-03-fire.jpg) | ![Reveal](intro-04-reveal.jpg) |
 
-![desktop frames](hero-intro-desktop.jpg)
+## The film (9.0 s of camera, settled by about 10.3 s)
 
-![mobile frames](hero-intro-mobile.jpg)
+Five beats on the one 458, each with its own light. Small film captions name the
+first three.
 
-## The shot (5.2 s of camera, settled by 6.2 s)
-
-| Time | Camera | Light and page | Type |
+| Time | Beat | Camera | Light, car and page |
 |---|---|---|---|
-| 0.0 s | Close on the left headlamp's LED strip, 1.25 m away (1.95 m on phones) | Dark studio: environment at 10 %, reflections rotated 1.5 rad | None. *Skip intro* fades in at 0.4 s |
-| 0.0–1.8 s | Tracks back along the strip, over the front wheel arch | Studio up to 24 %. The reflections start sweeping across the panels | — |
-| 1.8–3.3 s | Pulls back down the flank (desktop) or to a fitted front three-quarter (phones) | Studio up to 55 % | — |
-| 3.3–5.2 s | Rises over the car into the top-down hero poster and decelerates to rest | Studio to 100 %, reflections back at rest by 3.6 s. Page turns carbon → paper at 3.9 s (1.4 s cross-fade) | *Skip intro* fades out at 4.6 s |
-| 4.3 s | (decelerating) | — | **ROSSO** rises letter by letter, masked from below |
-| 4.9 s | at rest from 5.2 s | — | *Italia* signature writes on, left to right |
-| 5.3–6.2 s | — | — | Navigation, then hero copy, chapter rail, and finally the scroll cue |
+| 0.0–0.75 s | **Dark** | Close on the left headlamp, 1.6 m out | Nothing on: studio 0, lamps off. *Skip intro* fades in at 0.4 s |
+| 0.75–1.6 s | **01 Light** | Slow push-in to 1.2 m | The LED signature wakes in steps (2.6 → 0.1 → 2.9 → 0.35 → 3.3), like a real start-up sequence, then settles. It is the only light in the room |
+| 1.6–4.0 s | **02 Line** | Tracks back over the front arch and along the strip | A raking spotlight travels nose to tail down the flank (car-space z −3.2 → 3.4) and draws the shoulder line. The studio starts to glow (0.05 → 0.2) and its reflections begin to sweep |
+| 4.0–5.9 s | **03 Fire** | Glides down the flank to a low rear three-quarter, tailpipes in frame with room behind | Tail-lamps up. **Ignition at 4.65 s**: a bang from the three tailpipes (flame, light flash on the diffuser, camera kick, heat haze), a blip at 5.15 s, then the overrun crackle; idle smoke drifts until 6.6 s |
+| 5.9–9.0 s | **Reveal** | A rising arc over the car (via el 46°) into the top-down poster | Studio to 100 %, lamps back to rest, carbon → paper at 7.3 s. **ROSSO** at 7.5 s, *Italia* at 8.1 s, navigation 8.5 s, copy 8.6 s, scroll cue 9.4 s |
 
-Type starts only once the camera is decelerating, so text and camera never
+Type only arrives once the camera is decelerating, so text and camera never
 compete for attention.
 
 ## How it stays smooth and jump-free
 
-- **One GSAP timeline owns everything**: camera, studio light, theme, type,
-  navigation and the skip control. Any moment of the intro is a function of the
-  timeline's time, so seeking, skipping and reduced motion all land on the same
-  final frame.
-- **Camera keys live in car space.** They are converted to the scroll rig at run
-  time, and the last key *is* the live hero keyframe the scroll system uses. The
-  intro's final frame and the first scroll frame are therefore identical, which
-  the tests confirm to 0.001.
-- **Monotone Hermite spline.** Tangents are the harmonic mean of the neighbouring
-  slopes, so no channel overshoots its keys. The camera never dips below a key's
-  height or swings past an angle and back. Both ends are at rest, and the dolly
-  runs in log space so perceived speed stays even.
-- While the intro runs, the rig's damping is off (`rigLambda = Infinity`): the
-  timeline drives the camera exactly. Pointer parallax is off too
-  (`parallax: 0`). Afterwards normal damping returns. The top-down hero keeps a
-  gentle 30 % pointer response on fine-pointer desktops only, because yaw there
-  rotates the whole image.
-- **Scroll is held** (`lenis.stop()`) until the shot settles. Any attempt to
-  scroll skips instead of fighting the camera.
+- **One GSAP timeline owns everything:** camera, studio, lamps, the raking light,
+  the exhaust cues, theme, type, captions and the skip control.
+- **Camera keys live in car space** and the last key *is* the live hero keyframe,
+  so the intro's final frame and the first scroll frame are identical.
+- **Monotone Hermite spline** (no overshoot, dolly in log space), damping off
+  while the timeline drives the camera, pointer parallax off.
+- **One-shot effects are guarded.** The bangs and crackle are `fire(...)` cues
+  that do nothing during a skip or after the film ends, so jumping to the end
+  never fires a burst of bangs.
+- **The raking light never toggles visibility.** It stays in the scene at zero
+  intensity, because adding or removing a light changes the light count and
+  recompiles every material mid-page.
+- **The LEDs shine through their glass.** The headlamp's smoked cover glass
+  (58 % opacity) capped even a blazing LED at grey, so the LED emitters are now
+  drawn after the glass. The glass writes no depth, so they still sit behind it.
 
 ## Skip, revisit, accessibility
 
 | Situation | Behaviour |
 |---|---|
-| *Skip intro* button, `Esc`, wheel, touch-drag, `Space`/`↓`/`PgDn`/`End` | 0.25 s fade to black, cut to the settled hero, 0.6 s fade back. It never fast-forwards through the flight. Ignored in the last 8 % |
-| Orientation change mid-intro | Skips (the shot is composed per orientation) |
-| Second load in the same tab session | Short version: starts at the wide shot (3.0 s) at 1.15× speed. The camera settles in about 2 s and everything else by about 3.5 s |
-| `prefers-reduced-motion: reduce`, or no WebGL | No camera flight. The final composition, with 0.6 s opacity fades only |
-| Deep link (`/#configure`) | No intro. The page opens at that section |
-| Reload | Scroll restoration is manual and the page starts at the top, so the intro never plays over a restored mid-page scroll |
-| Returning to the top later | ROSSO and *Italia* are back exactly as settled. The scroll-out scrub uses explicit start values |
-
-The skip button is a real `<button>` with a visible focus ring. Keyboard skips
-are ignored while focus is on the button, so `Space` doesn't fire twice.
+| *Skip intro*, `Esc`, wheel, touch-drag, `Space`/`↓`/`PgDn`/`End` | 0.25 s fade to black, cut to the settled hero, 0.6 s fade back. No bangs fire; lamps, raking light, studio and exhaust are restored. Ignored in the last 7 % |
+| Orientation change mid-intro | Skips (the film is composed per orientation) |
+| Second load in the same tab session | Starts just before the ignition (4.3 s) at 1.15× speed: fire, then reveal, about 4.5 s |
+| `prefers-reduced-motion`, or no WebGL | No camera flight and no fire: the final composition with 0.6 s fades |
+| Deep link (`/#configure`) | No intro |
 
 ## Framing per device
 
-- **Landscape:** the detail at 30° fov, then a side pull-back, then a rise to the
-  top-down poster (car yawed 90°).
-- **Portrait:** a wider opener (36° fov), then a front three-quarter whose distance
-  is fitted to the screen by `fitDistance`, then a rise to the portrait poster
-  (car nose up). Azimuth rises the whole way (205° → 226° → 236° → 360°).
-- **Short landscape screens:** ROSSO is sized by height as well as width
-  (`min(41vw, max(62vh, (100vh − 380px) / 0.875))`). Below 840 px tall the hero
-  paragraph steps aside, as it already does on phones, so the word is never hidden
-  by the car or printed over the copy.
+- **Landscape:** 30° lens throughout the close work, rear three-quarter at
+  3.3–3.6 m, then the rise to the top-down poster.
+- **Portrait:** a wider 36° lens, the Fire beat from further back and more
+  directly behind (az 318–338°, 5.4–5.8 m) so the pipes and the flame fit a tall
+  frame, then the rise to the portrait poster (fitted to the screen).
 
-## Measured (software renderer; camera path sampled at 60 Hz)
+## Tests (headless Chrome, Apple M2)
 
-| | Desktop 1152×720 | Phone 390×844 |
-|---|---|---|
-| Closest approach to the car's bounding box | 0.43 m | 1.14 m |
-| Peak camera speed | 9.6 m/s | 30.7 m/s (the pull-back from 2.3 m to the fitted wide shot) |
-| Peak azimuth rate | 24°/s | 95°/s (rising over the car to nose-up) |
-| Frame-to-frame jumps in speed | none (max 6 mm) | none (max 24 mm) |
-| Timeline end vs settled scroll rig | identical | identical |
-
-These are not real-device numbers. Frame pacing was not measured on a GPU.
-
-## Known limits
-
-- **Phone hero composition** (unchanged from before this task): the vertical
-  ROSSO is about as wide as the top-down car, so the car covers most of it and
-  only its edges show. Fixing it needs a different mobile hero layout (smaller
-  car, or the word moved off the car), which is a design decision.
-- The opening close-up relies on the model's DRL strip and smoothed bodywork.
-  There is no texture detail to show (see `docs/LOOKDEV.md`).
+| Test | Result |
+|---|---|
+| Frames seeked at 0.5–9.5 s, 1440×900 and 390×844 | Each beat composed as intended; no page errors |
+| Skip from inside the Light beat | `done`, no flash or flame fired, throttle 0, DRL 0.55, tail 0.12, rake 0, studio 1, camera on the hero keyframe (el 89.4°, dist 9.6) |
+| Full-page behaviour suite after the intro | No console errors |

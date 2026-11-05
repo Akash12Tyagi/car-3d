@@ -76,6 +76,42 @@ export class EngineSound {
     return this.enabled;
   }
 
+  /** An exhaust bang: a band-passed crack over a low thump, louder for a bigger pop. */
+  pop(strength = 1) {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const s = Math.min(1.5, strength);
+    if (!this.popBuffer) {
+      const len = Math.floor(ctx.sampleRate * 0.25);
+      this.popBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = this.popBuffer.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.03));
+    }
+    const crack = ctx.createBufferSource();
+    crack.buffer = this.popBuffer;
+    crack.playbackRate.value = 0.8 + Math.random() * 0.5;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 700 + Math.random() * 900;
+    band.Q.value = 0.8;
+    const crackGain = ctx.createGain();
+    crackGain.gain.setValueAtTime(0.9 * s, now);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    crack.connect(band).connect(crackGain).connect(this.master);
+    const thump = ctx.createOscillator();
+    thump.type = 'sine';
+    thump.frequency.setValueAtTime(110, now);
+    thump.frequency.exponentialRampToValueAtTime(42, now + 0.12);
+    const thumpGain = ctx.createGain();
+    thumpGain.gain.setValueAtTime(1.1 * s, now);
+    thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+    thump.connect(thumpGain).connect(this.master);
+    crack.start(now);
+    thump.start(now);
+    thump.stop(now + 0.2);
+  }
+
   setRpm(rpm, smoothing = 0.08) {
     this.rpm = rpm;
     if (!this.ctx) return;
