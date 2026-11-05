@@ -3,14 +3,6 @@
 An unofficial, pitch-ready concept: a premium car website built around a real-time 3D Ferrari 458 Italia.
 See [RESEARCH.md](./RESEARCH.md) for the design research, roadmap and pitch demo script.
 
-| | |
-|---|---|
-| ![Prologue](docs/01-prologue.jpg) | ![Overture](docs/02-overture.jpg) |
-| ![Design](docs/03-design.jpg) | ![Launch](docs/05-launch.jpg) |
-| ![Atelier paint sweep](docs/06-atelier-paint-sweep.jpg) | ![Finale](docs/07-finale.jpg) |
-| ![Anatomy: exploded view](docs/08-anatomy-exploded.jpg) | ![Performance: exhaust at the limiter](docs/09-performance-exhaust.jpg) |
-| ![Engine: ignition in glass](docs/11-engine-ignition.jpg) | ![Engine: teardown](docs/12-engine-teardown.jpg) |
-
 ## Run
 
 ```bash
